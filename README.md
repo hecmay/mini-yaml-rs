@@ -1,75 +1,40 @@
-# minimal-yaml
+# mini-yaml-rs
 
-A minimalist, zero-copy parser for a strict subset of the YAML specification.
+A minimalist, zero-copy YAML parser for Rust. Supports sequences, mappings, and custom tags.
 
-## Motivation
+## Features
 
-The full YAML specification is [quite complex](https://yaml.org/spec/1.2/spec.html) and includes features such as aliases, anchors, and type inference which are non-trivial to parse and resolve. For some use cases, those features are overkill and the associated overhead is undesirable. In its barest form, YAML (arguably) boils down to a clean way to represent a structure of sequences and mappings. This crate aims to support this simple use-case.
+- Zero-copy parsing (returns references to input)
+- Sequences and mappings (flow and block styles)
+- Custom tag support: `!tagname` becomes `__type: "tagname"`
 
-## Use
+## Usage
 
-Supports YAML input consisting of only sequences and mappings. No type inference is performed, with all literal values being captured as string slices.
-Sequences may be in flow style
+```rust
+use mini_yaml_rs::parse;
 
-```yaml
-[such, as, this, sequence]
+let yaml = parse(r#"
+name: John
+items:
+  - apple
+  - banana
+"#).unwrap();
 ```
 
-or in block style
+### Tag Support
+
+Tags are converted to `__type` fields:
 
 ```yaml
-- laid
-- out
-- like
-- this
+!person {name: John}     # → {__type: "person", name: "John"}
+!int 42                  # → {__type: "int", __value: "42"}
+!list [a, b]             # → {__type: "list", __value: ["a", "b"]}
 ```
-
-Similarly, mappings may be in flow style
-
-```yaml
-{with : the, mapping : inline}
-```
-
-or in block style
-
-```yaml
-spread : across
-multiple : lines
-```
-
-Of course, sequences and mappings may be nested, and any valid YAML element can be a key or value, so for example
-
-```yaml
-[this, is] :
-  -
-    - totally
-    - valid
-  - input
-  - {to : the parser}
-```
-
-In accordance with the crate's goal of minimalism, the public API consists of one main structure: `enum Yaml<'a>` and one main function: `pub fn parse<'a>(input: &'a str) -> Result<Yaml<'a>>`
-
-## Performance
-
-***Caveat***:
-*The following is based on fairly limited benchmarking performed on a single machine using inputs of various sizes*
-
-A side benefit of keeping the parser as simple as possible is that *minimal-yaml* performs better than existing, full-featured parsers. In comparison with the fully spec compliant parser [*yaml-rust*](https://github.com/chyhå1990/yaml-rust), *minimal-yaml* consistently performs 3-5x better (i.e. parsing takes 1/3 to 1/5 of the time of *yaml-rust*).
 
 ## License
 
-Licensed under either of
+Apache-2.0. See [LICENSE](LICENSE).
 
-* Apache License, Version 2.0
- ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-* MIT license
- ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
+## Acknowledgments
 
-at your option.
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions
+Based on [minimal-yaml](https://github.com/nathanwhit/minimal-yaml) by Nathan Whitaker.
