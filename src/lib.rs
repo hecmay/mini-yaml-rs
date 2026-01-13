@@ -10,6 +10,7 @@ pub(crate) type Result<T> = std::result::Result<T, YamlParseError>;
 
 use parse::Parser;
 
+use serde_json::{Map, Value};
 use std::{fmt, fmt::Display};
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -141,6 +142,32 @@ fn print_yaml(
 impl Display for Yaml<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         print_yaml(&self, 0, f, PrintStyle::Block)
+    }
+}
+
+impl Yaml<'_> {
+    /// Convert the Yaml value to a serde_json::Value.
+    /// All scalars are treated as strings.
+    /// This format is compatible with SQLite JSON extension.
+    #[must_use]
+    pub fn to_json(&self) -> Value {
+        match self {
+            Yaml::Scalar(s) => Value::String((*s).to_string()),
+            Yaml::Sequence(seq) => {
+                Value::Array(seq.iter().map(|item| item.to_json()).collect())
+            }
+            Yaml::Mapping(entries) => {
+                let mut map = Map::new();
+                for entry in entries {
+                    let key = match &entry.key {
+                        Yaml::Scalar(s) => (*s).to_string(),
+                        other => other.to_json().to_string(),
+                    };
+                    map.insert(key, entry.value.to_json());
+                }
+                Value::Object(map)
+            }
+        }
     }
 }
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]

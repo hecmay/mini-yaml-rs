@@ -547,3 +547,44 @@ mk_test!(
     empty tag name;
     r"! value" => fail
 );
+
+// JSON conversion tests
+
+#[test]
+fn test_to_json_basic() {
+    let yaml = r#"
+name: John
+age: 30
+hobbies:
+  - reading
+  - coding
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+
+    assert!(json.is_object());
+    let obj = json.as_object().unwrap();
+    assert_eq!(obj.get("name").unwrap(), "John");
+    assert_eq!(obj.get("age").unwrap(), "30");
+
+    let hobbies = obj.get("hobbies").unwrap().as_array().unwrap();
+    assert_eq!(hobbies.len(), 2);
+    assert_eq!(hobbies[0], "reading");
+    assert_eq!(hobbies[1], "coding");
+}
+
+#[test]
+fn test_to_json_nested() {
+    let yaml = r#"
+outer:
+  inner:
+    value: nested
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+
+    let json_str = serde_json::to_string(&json).unwrap();
+    assert!(json_str.contains("outer"));
+    assert!(json_str.contains("inner"));
+    assert!(json_str.contains("nested"));
+}
