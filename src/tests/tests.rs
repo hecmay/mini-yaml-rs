@@ -509,11 +509,6 @@ and : done
 // Tag tests
 
 mk_test!(
-    tag with scalar;
-    r"!int 42" => map!{ "__type" : "int", "__value" : "42" }
-);
-
-mk_test!(
     tag with quoted scalar;
     r#"!str "hello world""# => map!{ "__type" : "str", "__value" : r#""hello world""# }
 );
@@ -547,6 +542,109 @@ mk_test!(
     empty tag name;
     r"! value" => fail
 );
+
+// Type casting tests
+
+#[test]
+fn test_int_tag_casts() {
+    assert_eq!(crate::parse("!int 42").unwrap(), crate::Yaml::Int(42));
+}
+
+#[test]
+fn test_int_tag_negative() {
+    assert_eq!(crate::parse("!int -123").unwrap(), crate::Yaml::Int(-123));
+}
+
+#[test]
+fn test_int_tag_invalid() {
+    assert!(crate::parse("!int abc").is_err());
+}
+
+#[test]
+fn test_float_tag_casts() {
+    assert_eq!(crate::parse("!float 3.14").unwrap(), crate::Yaml::Float(3.14));
+}
+
+#[test]
+fn test_float_tag_negative() {
+    assert_eq!(crate::parse("!float -2.5").unwrap(), crate::Yaml::Float(-2.5));
+}
+
+#[test]
+fn test_float_tag_invalid() {
+    assert!(crate::parse("!float notafloat").is_err());
+}
+
+#[test]
+fn test_bool_tag_true() {
+    assert_eq!(crate::parse("!bool true").unwrap(), crate::Yaml::Bool(true));
+}
+
+#[test]
+fn test_bool_tag_false() {
+    assert_eq!(crate::parse("!bool false").unwrap(), crate::Yaml::Bool(false));
+}
+
+#[test]
+fn test_bool_tag_yes() {
+    assert_eq!(crate::parse("!bool yes").unwrap(), crate::Yaml::Bool(true));
+}
+
+#[test]
+fn test_bool_tag_no() {
+    assert_eq!(crate::parse("!bool no").unwrap(), crate::Yaml::Bool(false));
+}
+
+#[test]
+fn test_bool_tag_on_off() {
+    assert_eq!(crate::parse("!bool on").unwrap(), crate::Yaml::Bool(true));
+    assert_eq!(crate::parse("!bool off").unwrap(), crate::Yaml::Bool(false));
+}
+
+#[test]
+fn test_bool_tag_one_zero() {
+    assert_eq!(crate::parse("!bool 1").unwrap(), crate::Yaml::Bool(true));
+    assert_eq!(crate::parse("!bool 0").unwrap(), crate::Yaml::Bool(false));
+}
+
+#[test]
+fn test_bool_tag_invalid() {
+    assert!(crate::parse("!bool maybe").is_err());
+}
+
+#[test]
+fn test_typed_values_in_mapping() {
+    let yaml = r#"
+count: !int 42
+price: !float 19.99
+enabled: !bool true
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].value, crate::Yaml::Int(42));
+        assert_eq!(entries[1].value, crate::Yaml::Float(19.99));
+        assert_eq!(entries[2].value, crate::Yaml::Bool(true));
+    } else {
+        panic!("Expected mapping");
+    }
+}
+
+#[test]
+fn test_typed_values_to_json() {
+    let yaml = r#"
+count: !int 42
+price: !float 19.99
+enabled: !bool true
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let obj = json.as_object().unwrap();
+
+    assert_eq!(obj.get("count").unwrap().as_i64().unwrap(), 42);
+    assert_eq!(obj.get("price").unwrap().as_f64().unwrap(), 19.99);
+    assert_eq!(obj.get("enabled").unwrap().as_bool().unwrap(), true);
+}
 
 // JSON conversion tests
 

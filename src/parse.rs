@@ -343,12 +343,47 @@ impl<'a, 'b> Parser<'a> {
     }
 
     /// Parse a tagged value (!tagname value).
-    /// Wraps the result in a mapping with __type field.
+    /// For !int, !float, !bool tags, performs type casting.
+    /// For other tags, wraps the result in a mapping with __type field.
     fn parse_tagged_value(&mut self) -> Result<Yaml<'a>> {
         let tag_name = self.parse_tag()?;
 
         // Parse the value following the tag
         let value = self.parse()?;
+
+        // Handle type casting for primitive tags
+        if let Yaml::Scalar(s) = &value {
+            match tag_name {
+                "int" => {
+                    let parsed: i64 = s.parse().map_err(|_| {
+                        self.make_parse_error_with_msg(format!(
+                            "cannot parse '{}' as integer",
+                            s
+                        ))
+                    })?;
+                    return Ok(Yaml::Int(parsed));
+                }
+                "float" => {
+                    let parsed: f64 = s.parse().map_err(|_| {
+                        self.make_parse_error_with_msg(format!(
+                            "cannot parse '{}' as float",
+                            s
+                        ))
+                    })?;
+                    return Ok(Yaml::Float(parsed));
+                }
+                "bool" => {
+                    let parsed = Self::parse_bool(s).ok_or_else(|| {
+                        self.make_parse_error_with_msg(format!(
+                            "cannot parse '{}' as boolean",
+                            s
+                        ))
+                    })?;
+                    return Ok(Yaml::Bool(parsed));
+                }
+                _ => {} // Fall through to existing wrapping behavior
+            }
+        }
 
         // Wrap the result based on value type
         let result = match value {
@@ -371,6 +406,16 @@ impl<'a, 'b> Parser<'a> {
         };
 
         Ok(result)
+    }
+
+    /// Parse a boolean string value.
+    /// Accepts: true/false, yes/no, on/off, 1/0 (case-insensitive)
+    fn parse_bool(s: &str) -> Option<bool> {
+        match s.to_lowercase().as_str() {
+            "true" | "yes" | "on" | "1" => Some(true),
+            "false" | "no" | "off" | "0" => Some(false),
+            _ => None,
+        }
     }
 
     fn lookup_line_col(&self) -> (usize, usize) {

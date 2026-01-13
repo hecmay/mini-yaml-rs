@@ -26,9 +26,20 @@ items:
 Tags are converted to `__type` fields:
 
 ```yaml
-!person {name: John}     # → {__type: "person", name: "John"}
-!int 42                  # → {__type: "int", __value: "42"}
-!list [a, b]             # → {__type: "list", __value: ["a", "b"]}
+!person {name: John}    # → {__type: "person", name: "John"}
+!custom_tag [1, 2, 3]   # → {__type: "custom_tag", __value: [1, 2, 3]}
+```
+
+For some built-in tags, the parser automatically converts to native types:
+
+```yaml
+42            # → 42 (as integer)
+true          # → true (as boolean)
+3.14          # → 3.14 (as float)
+
+# Keep these as strings:
+"42"          # → "42" (as string)
+'true'        # → 'true' (as string)
 ```
 
 ## License

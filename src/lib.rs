@@ -13,11 +13,20 @@ use parse::Parser;
 use serde_json::{Map, Value};
 use std::{fmt, fmt::Display};
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 /// A Yaml Element
 pub enum Yaml<'a> {
     /// A literal value, losslessly interpreted as a string
     Scalar(&'a str),
+
+    /// An integer value, parsed from `!int` tag
+    Int(i64),
+
+    /// A floating-point value, parsed from `!float` tag
+    Float(f64),
+
+    /// A boolean value, parsed from `!bool` tag
+    Bool(bool),
 
     /// A sequence of values in flow style
     /// `[x, y, z]`
@@ -59,6 +68,9 @@ fn print_yaml(
     const INDENT_AMT: usize = 2;
     match node {
         Yaml::Scalar(slice) => write!(f, "{}", slice),
+        Yaml::Int(i) => write!(f, "{}", i),
+        Yaml::Float(fl) => write!(f, "{}", fl),
+        Yaml::Bool(b) => write!(f, "{}", b),
         Yaml::Sequence(seq) => {
             match style {
                 PrintStyle::Block => {
@@ -67,6 +79,9 @@ fn print_yaml(
                         write!(f, "-")?;
                         match el {
                             Yaml::Scalar(slice) => writeln!(f, " {scal}", scal = slice)?,
+                            Yaml::Int(i) => writeln!(f, " {}", i)?,
+                            Yaml::Float(fl) => writeln!(f, " {}", fl)?,
+                            Yaml::Bool(b) => writeln!(f, " {}", b)?,
                             Yaml::Sequence(..) | Yaml::Mapping(..) => {
                                 #[allow(clippy::write_with_newline)]
                                 write!(f, "\n")?;
@@ -95,7 +110,7 @@ fn print_yaml(
                 PrintStyle::Block => {
                     for entry in map.iter() {
                         match &entry.key {
-                            Yaml::Scalar(..) => {
+                            Yaml::Scalar(..) | Yaml::Int(..) | Yaml::Float(..) | Yaml::Bool(..) => {
                                 print_indent(indent, f)?;
                                 print_yaml(&entry.key, indent, f, PrintStyle::Block)?;
                                 write!(f, " ")?;
@@ -107,7 +122,7 @@ fn print_yaml(
                         }
                         write!(f, ":")?;
                         match &entry.value {
-                            Yaml::Scalar(..) => {
+                            Yaml::Scalar(..) | Yaml::Int(..) | Yaml::Float(..) | Yaml::Bool(..) => {
                                 write!(f, " ")?;
                                 print_yaml(&entry.value, indent, f, PrintStyle::Block)?;
                                 #[allow(clippy::write_with_newline)]
@@ -153,6 +168,11 @@ impl Yaml<'_> {
     pub fn to_json(&self) -> Value {
         match self {
             Yaml::Scalar(s) => Value::String((*s).to_string()),
+            Yaml::Int(i) => Value::Number((*i).into()),
+            Yaml::Float(f) => {
+                Value::Number(serde_json::Number::from_f64(*f).unwrap_or_else(|| 0.into()))
+            }
+            Yaml::Bool(b) => Value::Bool(*b),
             Yaml::Sequence(seq) => {
                 Value::Array(seq.iter().map(|item| item.to_json()).collect())
             }
@@ -161,6 +181,9 @@ impl Yaml<'_> {
                 for entry in entries {
                     let key = match &entry.key {
                         Yaml::Scalar(s) => (*s).to_string(),
+                        Yaml::Int(i) => i.to_string(),
+                        Yaml::Float(f) => f.to_string(),
+                        Yaml::Bool(b) => b.to_string(),
                         other => other.to_json().to_string(),
                     };
                     map.insert(key, entry.value.to_json());
@@ -171,7 +194,7 @@ impl Yaml<'_> {
     }
 }
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 /// A Yaml map entry
 pub struct Entry<'a> {
     /// The key associated with the entry
