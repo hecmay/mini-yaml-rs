@@ -14,6 +14,7 @@ macro_rules! matches {
         }
     }
 }
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ParseContext {
     FlowIn,
@@ -210,7 +211,7 @@ impl<'a, 'b> Parser<'a> {
             }
             b'-' => match self.peek() {
                 Some(byt) if byt.is_linebreak() || byt.is_ws() => self.parse_sequence_block()?,
-                byt => unreachable!(format!("unexpected {:?}", byt.map(char::from))),
+                byt => unreachable!("unexpected {:?}", byt.map(char::from)),
             },
 
             b'}' | b']' => {
@@ -226,7 +227,7 @@ impl<'a, 'b> Parser<'a> {
                 }
                 self.parse()?
             }
-            // TODO: Provide error message
+            b'!' => self.parse_tagged_value()?,
             _ => return self.parse_error_with_msg("failed to parse at top level"),
         };
         Ok(res)
@@ -310,6 +311,66 @@ impl<'a, 'b> Parser<'a> {
                 Ok(Yaml::Scalar(entire_literal))
             }
         }
+    }
+
+    /// Parse a tag name after the `!` character.
+    /// Returns the tag name as a string slice.
+    fn parse_tag(&mut self) -> Result<&'a str> {
+        // Consume the '!'
+        self.advance()?;
+
+        // Capture tag name start
+        let tag_start = self.idx;
+
+        // Parse tag characters (alphanumeric, hyphen, underscore)
+        while matches!(self.current, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_') {
+            if !self.bump() {
+                break;
+            }
+        }
+
+        let tag_end = self.idx;
+        let tag_name = self.slice_range((tag_start, tag_end));
+
+        if tag_name.is_empty() {
+            return self.parse_error_with_msg("expected tag name after '!'");
+        }
+
+        // Consume whitespace after tag
+        self.chomp_whitespace();
+
+        Ok(tag_name)
+    }
+
+    /// Parse a tagged value (!tagname value).
+    /// Wraps the result in a mapping with __type field.
+    fn parse_tagged_value(&mut self) -> Result<Yaml<'a>> {
+        let tag_name = self.parse_tag()?;
+
+        // Parse the value following the tag
+        let value = self.parse()?;
+
+        // Wrap the result based on value type
+        let result = match value {
+            Yaml::Mapping(mut entries) => {
+                // Insert __type at the beginning
+                entries.insert(
+                    0,
+                    Entry::new(Yaml::Scalar("__type"), Yaml::Scalar(tag_name)),
+                );
+                Yaml::Mapping(entries)
+            }
+            other => {
+                // Wrap scalar or sequence in a mapping with __type and __value
+                let entries = vec![
+                    Entry::new(Yaml::Scalar("__type"), Yaml::Scalar(tag_name)),
+                    Entry::new(Yaml::Scalar("__value"), other),
+                ];
+                Yaml::Mapping(entries)
+            }
+        };
+
+        Ok(result)
     }
 
     fn lookup_line_col(&self) -> (usize, usize) {

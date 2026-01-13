@@ -482,11 +482,11 @@ baz :
 #[test]
 fn test_round_trip_basic_structural_eq() {
     let input = r#"
-key : 
+key :
   the : value
-  is : 
+  is :
     nested : mappings
-    wow : 
+    wow :
       - with a block seq
       - too
 and : done
@@ -505,3 +505,45 @@ and : done
         }
     )
 }
+
+// Tag tests
+
+mk_test!(
+    tag with scalar;
+    r"!int 42" => map!{ "__type" : "int", "__value" : "42" }
+);
+
+mk_test!(
+    tag with quoted scalar;
+    r#"!str "hello world""# => map!{ "__type" : "str", "__value" : r#""hello world""# }
+);
+
+mk_test!(
+    tag with flow sequence;
+    r"!list [a, b, c]" => map!{ "__type" => "list"; "__value" => seq!("a", "b", "c") }
+);
+
+mk_test!(
+    tag with flow mapping;
+    r"!person {name: John, age: 30}" => map!{ "__type" : "person", "name" : "John", "age" : "30" }
+);
+
+mk_test!(
+    tag in flow mapping value;
+    r"{key: !tagged value}" => map!{ "key" => map!{ "__type" : "tagged", "__value" : "value" } }
+);
+
+mk_test!(
+    tag with hyphen in name;
+    r"!my-custom-tag value" => map!{ "__type" : "my-custom-tag", "__value" : "value" }
+);
+
+mk_test!(
+    tag with underscore in name;
+    r"!my_tag value" => map!{ "__type" : "my_tag", "__value" : "value" }
+);
+
+mk_test!(
+    empty tag name;
+    r"! value" => fail
+);
