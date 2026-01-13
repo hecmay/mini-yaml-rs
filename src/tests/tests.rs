@@ -562,12 +562,18 @@ fn test_int_tag_invalid() {
 
 #[test]
 fn test_float_tag_casts() {
-    assert_eq!(crate::parse("!float 3.14").unwrap(), crate::Yaml::Float(3.14));
+    assert_eq!(
+        crate::parse("!float 3.14").unwrap(),
+        crate::Yaml::Float(3.14)
+    );
 }
 
 #[test]
 fn test_float_tag_negative() {
-    assert_eq!(crate::parse("!float -2.5").unwrap(), crate::Yaml::Float(-2.5));
+    assert_eq!(
+        crate::parse("!float -2.5").unwrap(),
+        crate::Yaml::Float(-2.5)
+    );
 }
 
 #[test]
@@ -582,7 +588,10 @@ fn test_bool_tag_true() {
 
 #[test]
 fn test_bool_tag_false() {
-    assert_eq!(crate::parse("!bool false").unwrap(), crate::Yaml::Bool(false));
+    assert_eq!(
+        crate::parse("!bool false").unwrap(),
+        crate::Yaml::Bool(false)
+    );
 }
 
 #[test]
@@ -678,14 +687,23 @@ fn test_auto_bool_inference() {
 fn test_quoted_strings_not_converted() {
     // Quoted values should remain as strings (quotes stripped)
     assert_eq!(crate::parse(r#""42""#).unwrap(), crate::Yaml::Scalar("42"));
-    assert_eq!(crate::parse(r#"'true'"#).unwrap(), crate::Yaml::Scalar("true"));
-    assert_eq!(crate::parse(r#""3.14""#).unwrap(), crate::Yaml::Scalar("3.14"));
+    assert_eq!(
+        crate::parse(r#"'true'"#).unwrap(),
+        crate::Yaml::Scalar("true")
+    );
+    assert_eq!(
+        crate::parse(r#""3.14""#).unwrap(),
+        crate::Yaml::Scalar("3.14")
+    );
 }
 
 #[test]
 fn test_non_numeric_strings_not_converted() {
     assert_eq!(crate::parse("hello").unwrap(), crate::Yaml::Scalar("hello"));
-    assert_eq!(crate::parse("foo123").unwrap(), crate::Yaml::Scalar("foo123"));
+    assert_eq!(
+        crate::parse("foo123").unwrap(),
+        crate::Yaml::Scalar("foo123")
+    );
 }
 
 // JSON conversion tests

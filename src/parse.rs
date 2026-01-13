@@ -369,10 +369,7 @@ impl<'a, 'b> Parser<'a> {
                     Yaml::Int(i) => Ok(Yaml::Float(i as f64)),
                     Yaml::Scalar(s) => {
                         let parsed: f64 = s.parse().map_err(|_| {
-                            self.make_parse_error_with_msg(format!(
-                                "cannot parse '{}' as float",
-                                s
-                            ))
+                            self.make_parse_error_with_msg(format!("cannot parse '{}' as float", s))
                         })?;
                         Ok(Yaml::Float(parsed))
                     }

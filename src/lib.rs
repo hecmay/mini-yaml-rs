@@ -173,9 +173,7 @@ impl Yaml<'_> {
                 Value::Number(serde_json::Number::from_f64(*f).unwrap_or_else(|| 0.into()))
             }
             Yaml::Bool(b) => Value::Bool(*b),
-            Yaml::Sequence(seq) => {
-                Value::Array(seq.iter().map(|item| item.to_json()).collect())
-            }
+            Yaml::Sequence(seq) => Value::Array(seq.iter().map(|item| item.to_json()).collect()),
             Yaml::Mapping(entries) => {
                 let mut map = Map::new();
                 for entry in entries {
