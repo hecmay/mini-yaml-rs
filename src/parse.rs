@@ -257,39 +257,32 @@ impl<'a, 'b> Parser<'a> {
     pub(crate) fn parse_scalar(&mut self) -> Result<Yaml<'a>> {
         let context = self.context();
         match self.current {
-            // TODO: currently qouble quote/single quote scalars are handled identically. maybe handle as defined
-            // by the YAML spec?
+            // Double-quoted string: strip the quotes
             b'\"' => {
-                let scal_start = self.idx;
-                self.advance()?;
+                self.advance()?; // consume opening quote
+                let scal_start = self.idx; // start after the quote
                 let _ = self
                     .take_while(|tok, _| !matches!(tok, b'\"'))
                     .map_err(|_| {
                         self.make_parse_error_with_msg("unexpected end of input; expected '\"'")
                     })?;
-                let scal_end = if self.bump() {
-                    self.idx
-                } else {
-                    self.bytes.len()
-                };
-                let entire_literal = self.slice_range((scal_start, scal_end));
-
-                Ok(Yaml::Scalar(entire_literal))
+                let scal_end = self.idx; // end before the closing quote
+                self.bump(); // consume closing quote
+                let content = self.slice_range((scal_start, scal_end));
+                Ok(Yaml::Scalar(content))
             }
+            // Single-quoted string: strip the quotes
             b'\'' => {
-                let scal_start = self.idx;
-                self.advance()?;
+                self.advance()?; // consume opening quote
+                let scal_start = self.idx; // start after the quote
                 self.take_while(|tok, _| !matches!(tok, b'\''))
                     .map_err(|_| {
                         self.make_parse_error_with_msg("unexpected end of input; expected '\''")
                     })?;
-                let scal_end = if self.bump() {
-                    self.idx
-                } else {
-                    self.bytes.len()
-                };
-                let entire_literal = self.slice_range((scal_start, scal_end));
-                Ok(Yaml::Scalar(entire_literal))
+                let scal_end = self.idx; // end before the closing quote
+                self.bump(); // consume closing quote
+                let content = self.slice_range((scal_start, scal_end));
+                Ok(Yaml::Scalar(content))
             }
             _ => {
                 let accept = |tok: u8, nxt: Option<u8>| tok.is_ns_plain(nxt, context);
@@ -308,7 +301,8 @@ impl<'a, 'b> Parser<'a> {
                     }
                 }
                 let entire_literal = self.slice_range((start, end));
-                Ok(Yaml::Scalar(entire_literal))
+                // Automatically infer type for unquoted scalars
+                Ok(Self::infer_scalar_type(entire_literal))
             }
         }
     }
@@ -343,7 +337,7 @@ impl<'a, 'b> Parser<'a> {
     }
 
     /// Parse a tagged value (!tagname value).
-    /// For !int, !float, !bool tags, performs type casting.
+    /// For !int, !float, !bool tags, returns the value directly (with type coercion if needed).
     /// For other tags, wraps the result in a mapping with __type field.
     fn parse_tagged_value(&mut self) -> Result<Yaml<'a>> {
         let tag_name = self.parse_tag()?;
@@ -352,37 +346,56 @@ impl<'a, 'b> Parser<'a> {
         let value = self.parse()?;
 
         // Handle type casting for primitive tags
-        if let Yaml::Scalar(s) = &value {
-            match tag_name {
-                "int" => {
-                    let parsed: i64 = s.parse().map_err(|_| {
-                        self.make_parse_error_with_msg(format!(
-                            "cannot parse '{}' as integer",
-                            s
-                        ))
-                    })?;
-                    return Ok(Yaml::Int(parsed));
-                }
-                "float" => {
-                    let parsed: f64 = s.parse().map_err(|_| {
-                        self.make_parse_error_with_msg(format!(
-                            "cannot parse '{}' as float",
-                            s
-                        ))
-                    })?;
-                    return Ok(Yaml::Float(parsed));
-                }
-                "bool" => {
-                    let parsed = Self::parse_bool(s).ok_or_else(|| {
-                        self.make_parse_error_with_msg(format!(
-                            "cannot parse '{}' as boolean",
-                            s
-                        ))
-                    })?;
-                    return Ok(Yaml::Bool(parsed));
-                }
-                _ => {} // Fall through to existing wrapping behavior
+        match tag_name {
+            "int" => {
+                return match value {
+                    Yaml::Int(i) => Ok(Yaml::Int(i)),
+                    Yaml::Float(f) => Ok(Yaml::Int(f as i64)),
+                    Yaml::Scalar(s) => {
+                        let parsed: i64 = s.parse().map_err(|_| {
+                            self.make_parse_error_with_msg(format!(
+                                "cannot parse '{}' as integer",
+                                s
+                            ))
+                        })?;
+                        Ok(Yaml::Int(parsed))
+                    }
+                    _ => self.parse_error_with_msg("!int tag requires a numeric value"),
+                };
             }
+            "float" => {
+                return match value {
+                    Yaml::Float(f) => Ok(Yaml::Float(f)),
+                    Yaml::Int(i) => Ok(Yaml::Float(i as f64)),
+                    Yaml::Scalar(s) => {
+                        let parsed: f64 = s.parse().map_err(|_| {
+                            self.make_parse_error_with_msg(format!(
+                                "cannot parse '{}' as float",
+                                s
+                            ))
+                        })?;
+                        Ok(Yaml::Float(parsed))
+                    }
+                    _ => self.parse_error_with_msg("!float tag requires a numeric value"),
+                };
+            }
+            "bool" => {
+                return match value {
+                    Yaml::Bool(b) => Ok(Yaml::Bool(b)),
+                    Yaml::Int(i) => Ok(Yaml::Bool(i != 0)),
+                    Yaml::Scalar(s) => {
+                        let parsed = Self::parse_bool(s).ok_or_else(|| {
+                            self.make_parse_error_with_msg(format!(
+                                "cannot parse '{}' as boolean",
+                                s
+                            ))
+                        })?;
+                        Ok(Yaml::Bool(parsed))
+                    }
+                    _ => self.parse_error_with_msg("!bool tag requires a boolean value"),
+                };
+            }
+            _ => {} // Fall through to wrapping behavior
         }
 
         // Wrap the result based on value type
@@ -409,13 +422,37 @@ impl<'a, 'b> Parser<'a> {
     }
 
     /// Parse a boolean string value.
-    /// Accepts: true/false, yes/no, on/off, 1/0 (case-insensitive)
+    /// Accepts: true/false, yes/no, on/off (case-insensitive)
     fn parse_bool(s: &str) -> Option<bool> {
         match s.to_lowercase().as_str() {
-            "true" | "yes" | "on" | "1" => Some(true),
-            "false" | "no" | "off" | "0" => Some(false),
+            "true" | "yes" | "on" => Some(true),
+            "false" | "no" | "off" => Some(false),
             _ => None,
         }
+    }
+
+    /// Infer the type of an unquoted scalar value.
+    /// Returns Int, Float, Bool, or Scalar based on the content.
+    fn infer_scalar_type(s: &str) -> Yaml<'_> {
+        // Check for boolean values first
+        if let Some(b) = Self::parse_bool(s) {
+            return Yaml::Bool(b);
+        }
+
+        // Check for integer (digits with optional leading minus)
+        if let Ok(i) = s.parse::<i64>() {
+            return Yaml::Int(i);
+        }
+
+        // Check for float (contains decimal point or scientific notation)
+        if s.contains('.') || s.contains('e') || s.contains('E') {
+            if let Ok(f) = s.parse::<f64>() {
+                return Yaml::Float(f);
+            }
+        }
+
+        // Default to string
+        Yaml::Scalar(s)
     }
 
     fn lookup_line_col(&self) -> (usize, usize) {

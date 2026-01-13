@@ -13,22 +13,22 @@ impl<'a> From<&'a str> for crate::Yaml<'a> {
 
 mk_test!(
     double quote scalar whitespace;
-    r#""a scalar value with whitespace""# => r#""a scalar value with whitespace""#
+    r#""a scalar value with whitespace""# => "a scalar value with whitespace"
 );
 
 mk_test!(
     double quote scalar no whitespace;
-    r#""a_scalarvaluewithout_whitespace""# => r#""a_scalarvaluewithout_whitespace""#
+    r#""a_scalarvaluewithout_whitespace""# => "a_scalarvaluewithout_whitespace"
 );
 
 mk_test!(
     single quote scalar whitespace;
-    r#"'a scalar value with whitespace'"# => r#"'a scalar value with whitespace'"#
+    r#"'a scalar value with whitespace'"# => "a scalar value with whitespace"
 );
 
 mk_test!(
     single quote scalar no whitespace;
-    r#"'ascalarvalue_without_whitespace'"# => r#"'ascalarvalue_without_whitespace'"#
+    r#"'ascalarvalue_without_whitespace'"# => "ascalarvalue_without_whitespace"
 );
 
 mk_test!(
@@ -60,7 +60,7 @@ mk_test!(
 
 mk_test!(
     simple flow sequence mixed quotes;
-    r#"[ "a", 'b' , "  c ", d, ' e  ' ]"# => seq!(r#""a""#, r#"'b'"#, r#""  c ""# , "d", r#"' e  '"#)
+    r#"[ "a", 'b' , "  c ", d, ' e  ' ]"# => seq!("a", "b", "  c ", "d", " e  ")
 );
 
 mk_test!(
@@ -79,7 +79,7 @@ mk_test!(
 
 mk_test!(
     mixed kind flow sequence quotes;
-    r#"[" elem " , [ a, 'b ' , "   c "]]"# => seq!(r#"" elem ""#, seq!("a", r"'b '", r#""   c ""#))
+    r#"[" elem " , [ a, 'b ' , "   c "]]"# => seq!(" elem ", seq!("a", "b ", "   c "))
 );
 
 // Flow mappings
@@ -125,7 +125,7 @@ mk_test!(
 mk_test!(
     map entry flow mapping;
     r"{ { a   map : as a key} : { 'a map ': as a value }   }" => map! {
-        map! { "a   map" : "as a key" } => map! { r"'a map '" : "as a value" }
+        map! { "a   map" : "as a key" } => map! { "a map " : "as a value" }
     }
 );
 
@@ -141,7 +141,7 @@ r#"
 -   nodes
 - "in"
 - 'block'
-- ' form '"# => seq!("a", "sequence", "of", "yaml", "nodes", r#""in""#, r"'block'", r"' form '") 
+- ' form '"# => seq!("a", "sequence", "of", "yaml", "nodes", "in", "block", " form ")
 );
 
 mk_test!(
@@ -151,7 +151,7 @@ r#"
 - sequence
 - with
 -       [ a, sequence, "as ", 'a', node  ]
-"# => seq!("a", "sequence", "with", seq!("a", "sequence", r#""as ""#, "'a'", "node"))
+"# => seq!("a", "sequence", "with", seq!("a", "sequence", "as ", "a", "node"))
 );
 
 mk_test!(
@@ -162,7 +162,7 @@ r#"
 - sequence
 - '  "with" '
 - { a : "flow", mapping : ' as ', a : " 'node' "}
-"# => seq!("a", "block", "sequence", r#"'  "with" '"#, map!{ "a" : r#""flow""#, "mapping" : r"' as '", "a" : r#"" 'node' ""#})
+"# => seq!("a", "block", "sequence", "  \"with\" ", map!{ "a" : "flow", "mapping" : " as ", "a" : " 'node' "})
 );
 
 mk_test!(
@@ -177,7 +177,7 @@ r#"
   - with
   - two
   - "'e l e m e n t s'"
-"# => seq!(seq!(r#"" a ""#, r"' nested'", r#"' " block  " '"# ,"sequence"), seq!("with", "two", r#""'e l e m e n t s'""#))
+"# => seq!(seq!(" a ", " nested", " \" block  \" ", "sequence"), seq!("with", "two", "'e l e m e n t s'"))
 );
 
 mk_test!(
@@ -186,7 +186,7 @@ r#"
 -
   - " a "
   - ' nested'
-"# => seq!(seq!(r#"" a ""#, r"' nested'"))
+"# => seq!(seq!(" a ", " nested"))
 );
 
 mk_test!(
@@ -203,18 +203,18 @@ r##"
     -
         - of
         - different
--   
+-
     - indent
     - levels
     -
         - [with, a, flow, sequence for good measure]
 - "' the '"
 - end
-"## => 
+"## =>
     seq!(
         seq!(
-            r#""a""#,
-            r#""nested""#,
+            "a",
+            "nested",
             "block",
             seq!(
                 "sequence",
@@ -238,7 +238,7 @@ r##"
                 )
             )
         ),
-        r#""' the '""#,
+        "' the '",
         "end"
     )
 );
@@ -261,7 +261,7 @@ key2 : value2
 and : another
 now with : "some quotes"
 'and' : "a 'few' more"
-"# => map!{ "key" : "value", "key2" : "value2", "and" : "another", "now with" : r#""some quotes""#, r"'and'" : r#""a 'few' more""#}
+"# => map!{ "key" : "value", "key2" : "value2", "and" : "another", "now with" : "some quotes", "and" : "a 'few' more"}
 );
 
 mk_test!(
@@ -272,7 +272,7 @@ mind : blown
 wait : [it, works, with, flow, sequences too]
 [now, how, about, one, with, the, flow, mapping, as] : a key
 "# => map!{
-    "key" => map!{ "the" : r#"" value ""#, r"'i s'": "a", "flow":"mapping"};
+    "key" => map!{ "the" : " value ", "i s": "a", "flow":"mapping"};
     "mind" => "blown";
     "wait" => seq!("it", "works", "with", "flow", "sequences too");
     seq!("now", "how", "about", "one", "with", "the", "flow", "mapping", "as") => "a key"
@@ -330,8 +330,8 @@ r#"
 - 'quux#xyzzy'
 "# => seq!(
         "foo",
-        r##""baz#bax""##,
-        r"'quux#xyzzy'"
+        "baz#bax",
+        "quux#xyzzy"
     )
 );
 
@@ -435,7 +435,7 @@ bar: bax
 mk_test!(issue_13b;
 r"
 value: {x: -0}
-" => map! { "value" => map! { "x": "-0" }}
+" => map! { "value" => map! { "x" => crate::Yaml::Int(0) }}
 );
 
 mk_test!(malformed seq;
@@ -446,7 +446,7 @@ r"
 );
 
 mk_test!(issue_14;
-r"a: -1" => map! { "a": "-1" }
+r"a: -1" => map! { "a" => crate::Yaml::Int(-1) }
 );
 
 mk_test!(issue_15a;
@@ -510,7 +510,7 @@ and : done
 
 mk_test!(
     tag with quoted scalar;
-    r#"!str "hello world""# => map!{ "__type" : "str", "__value" : r#""hello world""# }
+    r#"!str "hello world""# => map!{ "__type" : "str", "__value" : "hello world" }
 );
 
 mk_test!(
@@ -520,7 +520,7 @@ mk_test!(
 
 mk_test!(
     tag with flow mapping;
-    r"!person {name: John, age: 30}" => map!{ "__type" : "person", "name" : "John", "age" : "30" }
+    r"!person {name: John, age: 30}" => map!{ "__type" => "person"; "name" => "John"; "age" => crate::Yaml::Int(30) }
 );
 
 mk_test!(
@@ -614,10 +614,11 @@ fn test_bool_tag_invalid() {
 
 #[test]
 fn test_typed_values_in_mapping() {
+    // Test automatic type inference (no explicit tags needed)
     let yaml = r#"
-count: !int 42
-price: !float 19.99
-enabled: !bool true
+count: 42
+price: 19.99
+enabled: true
 "#;
     let parsed = crate::parse(yaml).unwrap();
     if let crate::Yaml::Mapping(entries) = parsed {
@@ -632,10 +633,11 @@ enabled: !bool true
 
 #[test]
 fn test_typed_values_to_json() {
+    // Test automatic type inference in JSON conversion
     let yaml = r#"
-count: !int 42
-price: !float 19.99
-enabled: !bool true
+count: 42
+price: 19.99
+enabled: true
 "#;
     let parsed = crate::parse(yaml).unwrap();
     let json = parsed.to_json();
@@ -644,6 +646,46 @@ enabled: !bool true
     assert_eq!(obj.get("count").unwrap().as_i64().unwrap(), 42);
     assert_eq!(obj.get("price").unwrap().as_f64().unwrap(), 19.99);
     assert_eq!(obj.get("enabled").unwrap().as_bool().unwrap(), true);
+}
+
+// Automatic type inference tests
+
+#[test]
+fn test_auto_int_inference() {
+    assert_eq!(crate::parse("42").unwrap(), crate::Yaml::Int(42));
+    assert_eq!(crate::parse("-123").unwrap(), crate::Yaml::Int(-123));
+    assert_eq!(crate::parse("0").unwrap(), crate::Yaml::Int(0));
+}
+
+#[test]
+fn test_auto_float_inference() {
+    assert_eq!(crate::parse("3.14").unwrap(), crate::Yaml::Float(3.14));
+    assert_eq!(crate::parse("-2.5").unwrap(), crate::Yaml::Float(-2.5));
+    assert_eq!(crate::parse("1.0e10").unwrap(), crate::Yaml::Float(1.0e10));
+}
+
+#[test]
+fn test_auto_bool_inference() {
+    assert_eq!(crate::parse("true").unwrap(), crate::Yaml::Bool(true));
+    assert_eq!(crate::parse("false").unwrap(), crate::Yaml::Bool(false));
+    assert_eq!(crate::parse("yes").unwrap(), crate::Yaml::Bool(true));
+    assert_eq!(crate::parse("no").unwrap(), crate::Yaml::Bool(false));
+    assert_eq!(crate::parse("on").unwrap(), crate::Yaml::Bool(true));
+    assert_eq!(crate::parse("off").unwrap(), crate::Yaml::Bool(false));
+}
+
+#[test]
+fn test_quoted_strings_not_converted() {
+    // Quoted values should remain as strings (quotes stripped)
+    assert_eq!(crate::parse(r#""42""#).unwrap(), crate::Yaml::Scalar("42"));
+    assert_eq!(crate::parse(r#"'true'"#).unwrap(), crate::Yaml::Scalar("true"));
+    assert_eq!(crate::parse(r#""3.14""#).unwrap(), crate::Yaml::Scalar("3.14"));
+}
+
+#[test]
+fn test_non_numeric_strings_not_converted() {
+    assert_eq!(crate::parse("hello").unwrap(), crate::Yaml::Scalar("hello"));
+    assert_eq!(crate::parse("foo123").unwrap(), crate::Yaml::Scalar("foo123"));
 }
 
 // JSON conversion tests
@@ -663,7 +705,7 @@ hobbies:
     assert!(json.is_object());
     let obj = json.as_object().unwrap();
     assert_eq!(obj.get("name").unwrap(), "John");
-    assert_eq!(obj.get("age").unwrap(), "30");
+    assert_eq!(obj.get("age").unwrap().as_i64().unwrap(), 30);
 
     let hobbies = obj.get("hobbies").unwrap().as_array().unwrap();
     assert_eq!(hobbies.len(), 2);

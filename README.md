@@ -19,6 +19,18 @@ items:
   - apple
   - banana
 "#).unwrap();
+
+// Returns Yaml<'_> enum - use to_json() for serde_json::Value
+let json = yaml.to_json();
+println!("{}", json);
+```
+
+Output:
+```json
+{
+  "name": "John",
+  "items": ["apple", "banana"]
+}
 ```
 
 ### Tag Support
@@ -30,17 +42,25 @@ Tags are converted to `__type` fields:
 !custom_tag [1, 2, 3]   # → {__type: "custom_tag", __value: [1, 2, 3]}
 ```
 
-For some built-in tags, the parser automatically converts to native types:
+### Native Type Conversion
+
+Unquoted scalar values are automatically converted to native types:
 
 ```yaml
 42            # → 42 (as integer)
-true          # → true (as boolean)
+-123          # → -123 (as integer)
 3.14          # → 3.14 (as float)
+1.0e10        # → 1.0e10 (as float)
+true          # → true (as boolean)
+false         # → false (as boolean)
+yes/no        # → true/false (as boolean)
+on/off        # → true/false (as boolean)
 
-# Keep these as strings:
-"42"          # → "42" (as string)
-'true'        # → 'true' (as string)
+# Keep these as strings by quoting:
+"42"          # → "42" (string, quotes stripped)
+'true'        # → "true" (string, quotes stripped)
 ```
+
 
 ## License
 
