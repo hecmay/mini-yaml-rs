@@ -228,6 +228,8 @@ impl<'a, 'b> Parser<'a> {
                 self.parse()?
             }
             b'!' => self.parse_tagged_value()?,
+            b'|' => self.parse_literal_block_scalar()?,
+            b'>' => self.parse_folded_block_scalar()?,
             _ => return self.parse_error_with_msg("failed to parse at top level"),
         };
         Ok(res)
@@ -450,6 +452,173 @@ impl<'a, 'b> Parser<'a> {
 
         // Default to string
         Yaml::Scalar(s)
+    }
+
+    /// Parse a literal block scalar (|).
+    /// Preserves newlines exactly as they appear.
+    fn parse_literal_block_scalar(&mut self) -> Result<Yaml<'a>> {
+        self.parse_block_scalar(false)
+    }
+
+    /// Parse a folded block scalar (>).
+    /// Folds newlines into spaces, except for blank lines.
+    fn parse_folded_block_scalar(&mut self) -> Result<Yaml<'a>> {
+        self.parse_block_scalar(true)
+    }
+
+    /// Parse a block scalar (literal | or folded >).
+    /// If `fold` is true, newlines are folded into spaces.
+    fn parse_block_scalar(&mut self, fold: bool) -> Result<Yaml<'a>> {
+        // Current character is | or >
+        self.advance()?;
+
+        // Parse optional chomping indicator (- or +) and indentation indicator (1-9)
+        let mut chomp = 0i8; // 0 = clip (default), -1 = strip, 1 = keep
+        let mut explicit_indent: Option<usize> = None;
+
+        // Parse indicators (can be in any order: |2-, |-2, |-, |2, |+, etc.)
+        for _ in 0..2 {
+            match self.current {
+                b'-' => {
+                    chomp = -1;
+                    self.bump();
+                }
+                b'+' => {
+                    chomp = 1;
+                    self.bump();
+                }
+                b'1'..=b'9' => {
+                    explicit_indent = Some((self.current - b'0') as usize);
+                    self.bump();
+                }
+                _ => break,
+            }
+        }
+
+        // Skip any remaining whitespace and comments on the indicator line
+        self.chomp_whitespace();
+        self.chomp_comment();
+
+        // Must have a newline after the indicator
+        if !self.current.is_linebreak() {
+            return self.parse_error_with_msg("expected newline after block scalar indicator");
+        }
+
+        // Skip the newline
+        if !self.bump() {
+            // End of input after indicator - return empty string
+            return Ok(Yaml::String(String::new()));
+        }
+
+        let mut result = String::new();
+        let mut trailing_newlines = 0usize;
+        let mut content_indent: Option<usize> = explicit_indent;
+
+        loop {
+            // Skip empty lines (but track them for later)
+            if self.current.is_linebreak() {
+                trailing_newlines += 1;
+                if !self.bump() {
+                    break;
+                }
+                continue;
+            }
+
+            // Count leading whitespace for this line
+            let mut line_indent = 0;
+            while self.current.is_ws() {
+                line_indent += 1;
+                if !self.bump() {
+                    break;
+                }
+            }
+
+            // Check if this is an empty line (only whitespace followed by newline)
+            if self.current.is_linebreak() {
+                trailing_newlines += 1;
+                if !self.bump() {
+                    break;
+                }
+                continue;
+            }
+
+            // First content line determines the indentation
+            if content_indent.is_none() {
+                content_indent = Some(line_indent);
+            }
+
+            let content_indent = content_indent.unwrap();
+
+            // Check if we've dedented (end of block)
+            if line_indent < content_indent {
+                // We need to "unread" the content we just read
+                // Since we can't, we'll adjust the indent for the caller
+                self.indent = line_indent;
+                break;
+            }
+
+            // Add any accumulated blank lines
+            for _ in 0..trailing_newlines {
+                result.push('\n');
+            }
+            trailing_newlines = 0;
+
+            // Add newline before content (except for first line)
+            if !result.is_empty() {
+                if fold {
+                    result.push(' ');
+                } else {
+                    result.push('\n');
+                }
+            }
+
+            // Add any extra indentation beyond content_indent
+            for _ in content_indent..line_indent {
+                result.push(' ');
+            }
+
+            // Collect the rest of the line
+            while !self.current.is_linebreak() {
+                result.push(self.current as char);
+                if !self.bump() {
+                    // End of input
+                    break;
+                }
+            }
+
+            // Move past the newline if present
+            if self.current.is_linebreak() {
+                if !self.bump() {
+                    break;
+                }
+            } else {
+                // End of input
+                break;
+            }
+        }
+
+        // Apply chomping
+        match chomp {
+            -1 => {
+                // Strip: remove all trailing newlines (already done by not adding them)
+            }
+            0 => {
+                // Clip: single trailing newline
+                if !result.is_empty() {
+                    result.push('\n');
+                }
+            }
+            1 => {
+                // Keep: preserve all trailing newlines
+                result.push('\n');
+                for _ in 0..trailing_newlines {
+                    result.push('\n');
+                }
+            }
+            _ => {}
+        }
+
+        Ok(Yaml::String(result))
     }
 
     fn lookup_line_col(&self) -> (usize, usize) {

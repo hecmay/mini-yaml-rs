@@ -19,6 +19,9 @@ pub enum Yaml<'a> {
     /// A literal value, losslessly interpreted as a string
     Scalar(&'a str),
 
+    /// An owned string value, used for literal block scalars
+    String(String),
+
     /// An integer value, parsed from `!int` tag
     Int(i64),
 
@@ -68,6 +71,7 @@ fn print_yaml(
     const INDENT_AMT: usize = 2;
     match node {
         Yaml::Scalar(slice) => write!(f, "{}", slice),
+        Yaml::String(s) => write!(f, "{}", s),
         Yaml::Int(i) => write!(f, "{}", i),
         Yaml::Float(fl) => write!(f, "{}", fl),
         Yaml::Bool(b) => write!(f, "{}", b),
@@ -79,6 +83,7 @@ fn print_yaml(
                         write!(f, "-")?;
                         match el {
                             Yaml::Scalar(slice) => writeln!(f, " {scal}", scal = slice)?,
+                            Yaml::String(s) => writeln!(f, " {}", s)?,
                             Yaml::Int(i) => writeln!(f, " {}", i)?,
                             Yaml::Float(fl) => writeln!(f, " {}", fl)?,
                             Yaml::Bool(b) => writeln!(f, " {}", b)?,
@@ -110,7 +115,11 @@ fn print_yaml(
                 PrintStyle::Block => {
                     for entry in map.iter() {
                         match &entry.key {
-                            Yaml::Scalar(..) | Yaml::Int(..) | Yaml::Float(..) | Yaml::Bool(..) => {
+                            Yaml::Scalar(..)
+                            | Yaml::String(..)
+                            | Yaml::Int(..)
+                            | Yaml::Float(..)
+                            | Yaml::Bool(..) => {
                                 print_indent(indent, f)?;
                                 print_yaml(&entry.key, indent, f, PrintStyle::Block)?;
                                 write!(f, " ")?;
@@ -122,7 +131,11 @@ fn print_yaml(
                         }
                         write!(f, ":")?;
                         match &entry.value {
-                            Yaml::Scalar(..) | Yaml::Int(..) | Yaml::Float(..) | Yaml::Bool(..) => {
+                            Yaml::Scalar(..)
+                            | Yaml::String(..)
+                            | Yaml::Int(..)
+                            | Yaml::Float(..)
+                            | Yaml::Bool(..) => {
                                 write!(f, " ")?;
                                 print_yaml(&entry.value, indent, f, PrintStyle::Block)?;
                                 #[allow(clippy::write_with_newline)]
@@ -168,6 +181,7 @@ impl Yaml<'_> {
     pub fn to_json(&self) -> Value {
         match self {
             Yaml::Scalar(s) => Value::String((*s).to_string()),
+            Yaml::String(s) => Value::String(s.clone()),
             Yaml::Int(i) => Value::Number((*i).into()),
             Yaml::Float(f) => {
                 Value::Number(serde_json::Number::from_f64(*f).unwrap_or_else(|| 0.into()))
