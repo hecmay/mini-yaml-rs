@@ -14,10 +14,18 @@ A minimalist, zero-copy YAML parser for Rust. Supports sequences, mappings, and 
 use mini_yaml_rs::parse;
 
 let yaml = parse(r#"
-name: John
-items:
-  - apple
-  - banana
++setup[Magix RTE Settings](magix://prelude/settings):
+    title: Magix RTE Settings
+    authors[]:
+      - !mod +@[Me](shawnx)
+      - !mod +@[Boby at Unix Group](boby:unix.org)
+
+    signature:
+        pubkey: |
+            MCowBQYDK2VwAyEAGb9F2CMlxqLDB3rrzBVwC7aB...
+
+    created: 2024-06-01T12:00:00Z
+    modified: 2024-06-01T12:00:00Z
 "#).unwrap();
 
 // Returns Yaml<'_> enum - use to_json() for serde_json::Value
@@ -28,8 +36,24 @@ println!("{}", json);
 Output:
 ```json
 {
-  "name": "John",
-  "items": ["apple", "banana"]
+  "+setup[Magix RTE Settings](magix://prelude/settings)": {
+    "title": "Magix RTE Settings",
+    "authors": [
+      {
+        "__type": "mod",
+        "+@[Me](shawnx)"
+      },
+      {
+        "__type": "mod",
+        "+@[Boby at Unix Group](boby:unix.org)"
+      }
+    ],
+    "signature": {
+      "pubkey": "MCowBQYDK2VwAyEAGb9F2CMlxqLDB3rrzBVwC7aB..."
+    },
+    "created": "2024-06-01T12:00:00Z",
+    "modified": "2024-06-01T12:00:00Z"
+  }
 }
 ```
 

@@ -350,6 +350,39 @@ r#"
 );
 
 mk_test!(
+nested seq in complex mapping with empty line;
+r#"
++magix.settings.states[magix-system-states-demo]():
+  opened_apps:
+    - Magix-Introduction.md
+    - Ex1-Personal-Productivity.md
+    - Ex2-Teaching-Aids.md
+
+  pinned_apps:
+    - name: Magix Docs
+      icon: book
+      command: |
+        { open } = import('magix');
+        open("Magix-Introduction.md");
+"# => map! {
+    "+magix.settings.states[magix-system-states-demo]()" => map! {
+        "opened_apps" => seq!(
+            "Magix-Introduction.md",
+            "Ex1-Personal-Productivity.md",
+            "Ex2-Teaching-Aids.md"
+        );
+        "pinned_apps" => seq!(
+            map! {
+                "name" => "Magix Docs";
+                "icon" => "book";
+                "command" => crate::Yaml::String("{ open } = import('magix');\nopen(\"Magix-Introduction.md\");\n".to_string())
+            }
+        )
+    }
+}
+);
+
+mk_test!(
 input with doc start;
 r"
 ---

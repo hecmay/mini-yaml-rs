@@ -138,7 +138,10 @@ impl<'a, 'b> Parser<'a> {
 
     fn bump_newline(&mut self) -> bool {
         match self.stream.next() {
-            Some(b'\n') | Some(b'\r') => self.bump(),
+            Some(b'\n') | Some(b'\r') => {
+                self.idx += 1; // Account for the newline char consumed from stream
+                self.bump()
+            }
             Some(byte) => {
                 self.idx += 1;
                 self.current = byte;
