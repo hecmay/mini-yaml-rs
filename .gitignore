@@ -2,3 +2,18 @@
 **/*.rs.bk
 yaml-test-suite
 Cargo.lock
+
+# OS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# Vim
+*.swp
+*.swo
+
+# Misc
+*.log
+.env

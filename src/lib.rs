@@ -6,11 +6,12 @@ mod tests;
 
 pub use crate::errors::YamlParseError;
 
+use wasm_bindgen::prelude::*;
+
 pub(crate) type Result<T> = std::result::Result<T, YamlParseError>;
 
 use parse::Parser;
 
-use regex::Regex;
 use serde_json::{Map, Value};
 use std::{fmt, fmt::Display};
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
@@ -224,11 +225,6 @@ impl Yaml<'_> {
             }
         };
 
-        // Regex to match: +name[...](...)
-        // The name part can contain dots, underscores, @, and alphanumeric chars
-        // The (...) part is optional
-        let re = Regex::new(r"^\+([^\[\]()]+)\[([^\]]*)\](?:\(([^)]*)\))?$").unwrap();
-
         let mut result_map = Map::new();
 
         for entry in entries {
@@ -240,12 +236,7 @@ impl Yaml<'_> {
                 other => other.to_json().to_string(),
             };
 
-            if let Some(caps) = re.captures(&key) {
-                // Extract the parts
-                let name_part = caps.get(1).map_or("", |m| m.as_str());
-                let bracket_content = caps.get(2).map_or("", |m| m.as_str());
-                let paren_content = caps.get(3).map(|m| m.as_str());
-
+            if let Some((name_part, bracket_content, paren_content)) = Self::parse_mx_key(&key) {
                 // Build the new key: +name
                 let new_key = format!("+{}", name_part);
 
@@ -260,12 +251,9 @@ impl Yaml<'_> {
                     }
                 };
 
-                value_obj.insert(
-                    "__name".to_string(),
-                    Value::String(bracket_content.to_string()),
-                );
+                value_obj.insert("__name".to_string(), Value::String(bracket_content));
                 if let Some(paren) = paren_content {
-                    value_obj.insert("__value".to_string(), Value::String(paren.to_string()));
+                    value_obj.insert("__value".to_string(), Value::String(paren));
                 }
 
                 result_map.insert(new_key, Value::Object(value_obj));
@@ -282,6 +270,52 @@ impl Yaml<'_> {
         }
 
         Value::Object(result_map)
+    }
+
+    /// Parse an mx key format: +name[label](value) where (value) is optional.
+    /// Returns (name, bracket_content, optional_paren_content) on success.
+    /// Allows any characters inside [] and ().
+    fn parse_mx_key(key: &str) -> Option<(String, String, Option<String>)> {
+        let key = key.strip_prefix('+')?;
+
+        // Find the first '[' - everything before is the name
+        let bracket_start = key.find('[')?;
+        let name_part = &key[..bracket_start];
+
+        // Name must not contain []()
+        if name_part.chars().any(|c| matches!(c, '[' | ']' | '(' | ')')) {
+            return None;
+        }
+
+        // Check if we have a paren section at the end
+        let (bracket_end, paren_content) = if key.ends_with(')') {
+            // Find the matching '(' by scanning backwards
+            let paren_close = key.len() - 1;
+            let after_bracket = &key[bracket_start + 1..];
+
+            // Find the last '](' pattern which separates bracket from paren
+            if let Some(sep_pos) = after_bracket.rfind("](") {
+                let bracket_end = bracket_start + 1 + sep_pos;
+                let paren_start = bracket_end + 2; // skip "]("
+                let paren_content = &key[paren_start..paren_close];
+                (bracket_end, Some(paren_content.to_string()))
+            } else {
+                return None;
+            }
+        } else if key.ends_with(']') {
+            // No paren section, bracket goes to the end
+            (key.len() - 1, None)
+        } else {
+            return None;
+        };
+
+        let bracket_content = &key[bracket_start + 1..bracket_end];
+
+        Some((
+            name_part.to_string(),
+            bracket_content.to_string(),
+            paren_content,
+        ))
     }
 
     fn make_mx_error(message: &str, yaml_content: &str) -> Value {
@@ -329,4 +363,22 @@ impl<'a> Display for Entry<'a> {
 pub fn parse(input: &str) -> Result<Yaml<'_>> {
     let mut parser = Parser::new(input)?;
     parser.parse()
+}
+
+// WASM bindings
+
+/// Parse YAML string and return JSON string.
+/// Returns a JSON string on success, or throws an error on parse failure.
+#[wasm_bindgen(js_name = parseYaml)]
+pub fn parse_yaml_to_json(input: &str) -> std::result::Result<String, JsError> {
+    let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(yaml.to_json().to_string())
+}
+
+/// Parse YAML string and return mx-formatted JSON string.
+/// Returns a JSON string with mx transformation on success, or throws an error on parse failure.
+#[wasm_bindgen(js_name = parseYamlToMx)]
+pub fn parse_yaml_to_mx(input: &str) -> std::result::Result<String, JsError> {
+    let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(yaml.to_mx().to_string())
 }

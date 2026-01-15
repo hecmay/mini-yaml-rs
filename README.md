@@ -17,7 +17,7 @@ let yaml = parse(r#"
 +setup[Settings](db://settings):
     title: Settings
     authors[]:
-      - !mod +@[Me](shawnx)
+      - !mod +@[Me](shawnx){}
       - !mod +@[Boby at Unix Group](boby:unix.org)
 
     signature:
