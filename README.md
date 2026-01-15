@@ -57,6 +57,39 @@ Output:
 }
 ```
 
+### MX Format (`to_mx`)
+
+The `to_mx()` method transforms keys in `+name[label](value)` format:
+
+```rust
+use mini_yaml_rs::parse;
+
+let yaml = parse(r#"
++setup[Settings](db://settings):
+    title: Settings
+    enabled: true
+"#).unwrap();
+
+let mx = yaml.to_mx();
+println!("{}", mx);
+```
+
+Output:
+```json
+{
+  "+setup": {
+    "__name": "Settings",
+    "__value": "db://settings",
+    "title": "Settings",
+    "enabled": true
+  }
+}
+```
+
+The key `+setup[Settings](db://settings)` becomes `+setup` with:
+- `__name` = bracket content (`Settings`)
+- `__value` = paren content (`db://settings`, optional)
+
 ### Tag Support
 
 Tags are converted to `__type` fields:

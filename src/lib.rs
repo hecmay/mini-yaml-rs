@@ -283,7 +283,10 @@ impl Yaml<'_> {
         let name_part = &key[..bracket_start];
 
         // Name must not contain []()
-        if name_part.chars().any(|c| matches!(c, '[' | ']' | '(' | ')')) {
+        if name_part
+            .chars()
+            .any(|c| matches!(c, '[' | ']' | '(' | ')'))
+        {
             return None;
         }
 
