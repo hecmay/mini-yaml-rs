@@ -220,10 +220,7 @@ impl Yaml<'_> {
         let entries = match self {
             Yaml::Mapping(entries) => entries,
             _ => {
-                return Self::make_mx_error(
-                    "Top level value must be an object",
-                    &self.to_string(),
-                );
+                return Self::make_mx_error("Top level value must be an object", &self.to_string());
             }
         };
 
@@ -263,7 +260,10 @@ impl Yaml<'_> {
                     }
                 };
 
-                value_obj.insert("__name".to_string(), Value::String(bracket_content.to_string()));
+                value_obj.insert(
+                    "__name".to_string(),
+                    Value::String(bracket_content.to_string()),
+                );
                 if let Some(paren) = paren_content {
                     value_obj.insert("__value".to_string(), Value::String(paren.to_string()));
                 }

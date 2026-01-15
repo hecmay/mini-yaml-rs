@@ -870,7 +870,12 @@ fn test_to_mx_error_not_object() {
 
     let obj = json.as_object().unwrap();
     let error = obj.get("+error").unwrap().as_object().unwrap();
-    assert!(error.get("__name").unwrap().as_str().unwrap().contains("must be an object"));
+    assert!(error
+        .get("__name")
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .contains("must be an object"));
 }
 
 #[test]
@@ -884,5 +889,10 @@ invalid_key:
 
     let obj = json.as_object().unwrap();
     let error = obj.get("+error").unwrap().as_object().unwrap();
-    assert!(error.get("__name").unwrap().as_str().unwrap().contains("does not match"));
+    assert!(error
+        .get("__name")
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .contains("does not match"));
 }
