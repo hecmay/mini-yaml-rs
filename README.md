@@ -14,8 +14,8 @@ A minimalist, zero-copy YAML parser for Rust. Supports sequences, mappings, and 
 use mini_yaml_rs::parse;
 
 let yaml = parse(r#"
-+setup[Magix RTE Settings](magix://prelude/settings):
-    title: Magix RTE Settings
++setup[Settings](db://settings):
+    title: Settings
     authors[]:
       - !mod +@[Me](shawnx)
       - !mod +@[Boby at Unix Group](boby:unix.org)
@@ -36,8 +36,8 @@ println!("{}", json);
 Output:
 ```json
 {
-  "+setup[Magix RTE Settings](magix://prelude/settings)": {
-    "title": "Magix RTE Settings",
+  "+setup[Settings](db://settings)": {
+    "title": "Settings",
     "authors": [
       {
         "__type": "mod",
