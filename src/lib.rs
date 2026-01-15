@@ -77,6 +77,15 @@ fn get_tag_name<'a>(map: &'a [Entry<'a>]) -> Option<&'a str> {
     None
 }
 
+/// Check if a Yaml value is a tagged mapping and return the tag name.
+fn get_yaml_tag_name<'a>(node: &'a Yaml<'a>) -> Option<&'a str> {
+    if let Yaml::Mapping(map) = node {
+        get_tag_name(map)
+    } else {
+        None
+    }
+}
+
 fn print_yaml(
     node: &Yaml<'_>,
     indent: usize,
@@ -320,6 +329,66 @@ fn print_yaml(
                             }
                         }
                         write!(f, ":")?;
+                        // Check if value is a tagged mapping - print inline
+                        if let Some(tag) = get_yaml_tag_name(&entry.value) {
+                            if let Yaml::Mapping(value_map) = &entry.value {
+                                write!(f, " !{}", tag)?;
+                                // Check if it's __type + __value only
+                                if value_map.len() == 2 {
+                                    if let Some(second) = value_map.get(1) {
+                                        if let Yaml::Scalar("__value") = &second.key {
+                                            write!(f, " ")?;
+                                            print_yaml(
+                                                &second.value,
+                                                indent,
+                                                f,
+                                                PrintStyle::Block,
+                                            )?;
+                                            writeln!(f)?;
+                                            continue;
+                                        }
+                                    }
+                                }
+                                // Print remaining fields on new lines
+                                writeln!(f)?;
+                                for val_entry in value_map.iter().skip(1) {
+                                    print_indent(indent + INDENT_AMT, f)?;
+                                    print_yaml(
+                                        &val_entry.key,
+                                        indent + INDENT_AMT,
+                                        f,
+                                        PrintStyle::Block,
+                                    )?;
+                                    write!(f, ":")?;
+                                    match &val_entry.value {
+                                        Yaml::Scalar(..)
+                                        | Yaml::String(..)
+                                        | Yaml::Int(..)
+                                        | Yaml::Float(..)
+                                        | Yaml::Bool(..) => {
+                                            write!(f, " ")?;
+                                            print_yaml(
+                                                &val_entry.value,
+                                                indent + INDENT_AMT,
+                                                f,
+                                                PrintStyle::Block,
+                                            )?;
+                                            writeln!(f)?;
+                                        }
+                                        Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                            writeln!(f)?;
+                                            print_yaml(
+                                                &val_entry.value,
+                                                indent + INDENT_AMT + INDENT_AMT,
+                                                f,
+                                                PrintStyle::Block,
+                                            )?;
+                                        }
+                                    }
+                                }
+                                continue;
+                            }
+                        }
                         match &entry.value {
                             Yaml::Scalar(..)
                             | Yaml::String(..)
