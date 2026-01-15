@@ -64,6 +64,19 @@ fn print_indent(indent: usize, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{:indent$}", "", indent = indent)
 }
 
+/// Check if a mapping represents a tagged value (has __type as first key).
+/// Returns the tag name if so.
+fn get_tag_name<'a>(map: &'a [Entry<'a>]) -> Option<&'a str> {
+    if let Some(first) = map.first() {
+        if let Yaml::Scalar("__type") = &first.key {
+            if let Yaml::Scalar(tag) = &first.value {
+                return Some(tag);
+            }
+        }
+    }
+    None
+}
+
 fn print_yaml(
     node: &Yaml<'_>,
     indent: usize,
@@ -225,6 +238,72 @@ fn print_yaml(
         Yaml::Mapping(map) => {
             match style {
                 PrintStyle::Block => {
+                    // Check if this is a tagged mapping (__type field)
+                    if let Some(tag) = get_tag_name(map) {
+                        print_indent(indent, f)?;
+                        write!(f, "!{}", tag)?;
+                        // Check if it's __type + __value only
+                        if map.len() == 2 {
+                            if let Some(second) = map.get(1) {
+                                if let Yaml::Scalar("__value") = &second.key {
+                                    // Print as !tag value
+                                    write!(f, " ")?;
+                                    print_yaml(&second.value, indent, f, PrintStyle::Block)?;
+                                    #[allow(clippy::write_with_newline)]
+                                    write!(f, "\n")?;
+                                    return Ok(());
+                                }
+                            }
+                        }
+                        // Print remaining fields (skip __type)
+                        #[allow(clippy::write_with_newline)]
+                        write!(f, "\n")?;
+                        for entry in map.iter().skip(1) {
+                            match &entry.key {
+                                Yaml::Scalar(..)
+                                | Yaml::String(..)
+                                | Yaml::Int(..)
+                                | Yaml::Float(..)
+                                | Yaml::Bool(..) => {
+                                    print_indent(indent, f)?;
+                                    print_yaml(&entry.key, indent, f, PrintStyle::Block)?;
+                                }
+                                Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                    print_yaml(
+                                        &entry.key,
+                                        indent + INDENT_AMT,
+                                        f,
+                                        PrintStyle::Block,
+                                    )?;
+                                    print_indent(indent, f)?;
+                                }
+                            }
+                            write!(f, ":")?;
+                            match &entry.value {
+                                Yaml::Scalar(..)
+                                | Yaml::String(..)
+                                | Yaml::Int(..)
+                                | Yaml::Float(..)
+                                | Yaml::Bool(..) => {
+                                    write!(f, " ")?;
+                                    print_yaml(&entry.value, indent, f, PrintStyle::Block)?;
+                                    #[allow(clippy::write_with_newline)]
+                                    write!(f, "\n")?;
+                                }
+                                Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                    #[allow(clippy::write_with_newline)]
+                                    write!(f, "\n")?;
+                                    print_yaml(
+                                        &entry.value,
+                                        indent + INDENT_AMT,
+                                        f,
+                                        PrintStyle::Block,
+                                    )?
+                                }
+                            }
+                        }
+                        return Ok(());
+                    }
                     for entry in map.iter() {
                         match &entry.key {
                             Yaml::Scalar(..)
