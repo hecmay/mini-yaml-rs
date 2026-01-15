@@ -248,29 +248,29 @@ r##"
 mk_test!(
 super simple;
 r#"
-key : value
-key2 : value2
+key: value
+key2: value2
 "# => map! { "key" : "value", "key2" : "value2"}
 );
 
 mk_test!(
 block mapping simple;
 r#"
-key : value
-key2 : value2
-and : another
-now with : "some quotes"
-'and' : "a 'few' more"
+key: value
+key2: value2
+and: another
+now with: "some quotes"
+'and': "a 'few' more"
 "# => map!{ "key" : "value", "key2" : "value2", "and" : "another", "now with" : "some quotes", "and" : "a 'few' more"}
 );
 
 mk_test!(
 block mapping flow;
 r#"
-key : {the : " value ", 'i s' : a, flow: mapping}
-mind : blown
-wait : [it, works, with, flow, sequences too]
-[now, how, about, one, with, the, flow, mapping, as] : a key
+key: {the: " value ", 'i s': a, flow: mapping}
+mind: blown
+wait: [it, works, with, flow, sequences too]
+[now, how, about, one, with, the, flow, mapping, as]: a key
 "# => map!{
     "key" => map!{ "the" : " value ", "i s": "a", "flow":"mapping"};
     "mind" => "blown";
@@ -282,14 +282,14 @@ wait : [it, works, with, flow, sequences too]
 mk_test!(
 block mapping nested blocks;
 r#"
-key : 
-  the : value
-  is : 
-    nested : mappings
-    wow : 
+key:
+  the: value
+  is:
+    nested: mappings
+    wow:
       - with a block seq
       - too
-and : done
+and: done
 "# => map!{
     "key" => map! {
         "the" => "value";
@@ -389,10 +389,10 @@ r"
 - this
 - is
 - a
-- 
-  sequence : of
-  values : in
-  a : yaml file
+-
+  sequence: of
+  values: in
+  a: yaml file
 " => seq!(
     "this", "is", "a",
     map! {
@@ -417,30 +417,30 @@ r"
 mk_test!(
 odd structure;
 r"
-this is :
+this is:
  - totally
  - valid
- - input : to the parser
+ - input: to the parser
 " => map!{ "this is" => seq!("totally", "valid", map!{ "input": "to the parser"})  }
 );
 
 mk_test!(
 readme example;
 r"
-[this, is] :
+[this, is]:
  -
   - totally
   - valid
  - input
- - {to : the parser}
+ - {to: the parser}
  " => map!{ seq!("this", "is") => seq!( seq!("totally","valid"), "input", map!{"to":"the parser"})}
 );
 
 mk_test!(
 block mapping missing value;
 r"
-a : block
-mapping : missing
+a: block
+mapping: missing
 a value for this key:
 
 " => err YamlParseError { line: 5, col: 1, msg: Some("unexpected end of input".into()), source: None}
@@ -494,13 +494,12 @@ r"a: a - a" => map! { "a": "a - a"}
 
 #[test]
 fn test_round_trip_basic_literal_eq() {
-    let input = r#"foo : bar
-baz :
+    let input = r#"foo: bar
+baz:
   - qux
   - quux
-  -
-    corge : grault
-    garply : waldo
+  - corge: grault
+    garply: waldo
       - fred
       - plugh
       - xyzzy
@@ -515,14 +514,14 @@ baz :
 #[test]
 fn test_round_trip_basic_structural_eq() {
     let input = r#"
-key :
-  the : value
-  is :
-    nested : mappings
-    wow :
+key:
+  the: value
+  is:
+    nested: mappings
+    wow:
       - with a block seq
       - too
-and : done
+and: done
 "#;
     assert_eq!(
         crate::parse(&crate::parse(input).unwrap().to_string()).unwrap(),
@@ -895,4 +894,67 @@ invalid_key:
         .as_str()
         .unwrap()
         .contains("does not match"));
+}
+
+// print_yaml / Display tests
+
+#[test]
+fn test_print_yaml_config_file() {
+    let yaml = r#"server:
+  host: localhost
+  port: 8080
+database:
+  connection:
+    host: db.example.com
+    port: 5432
+  credentials:
+    username: admin
+    password: secret
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, yaml);
+}
+
+// Regression test: parser must handle sequence items after nested sequences in mappings
+#[test]
+fn test_parse_sequence_after_nested_sequence_in_mapping() {
+    let yaml = r#"
+tasks:
+  - name: Build project
+    deps:
+      - compile
+      - lint
+  - name: Run tests
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    // Expected: tasks is a sequence with TWO mapping items
+    let expected = map! {
+        "tasks" => seq!(
+            map! {
+                "name" => "Build project";
+                "deps" => seq!("compile", "lint")
+            },
+            map! {
+                "name" => "Run tests"
+            }
+        )
+    };
+    assert_eq!(parsed, expected);
+}
+
+#[test]
+fn test_print_yaml_task_list() {
+    let yaml = r#"tasks:
+  - name: Build project
+    command: cargo build
+    deps:
+      - compile
+      - lint
+  - name: Run tests
+    command: cargo test
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, yaml);
 }

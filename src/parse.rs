@@ -880,6 +880,9 @@ impl<'a, 'b> Parser<'a> {
                             } else if self.check_ahead_1(ByteExt::is_ws) {
                                 self.advance()?;
                                 self.advance()?;
+                                // Update indent to account for "- " prefix
+                                // Content after "- " is effectively at indent + 2
+                                self.indent += 2;
                                 let node = self.parse()?;
                                 seq.push(node);
                             } else {

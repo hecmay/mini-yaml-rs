@@ -89,10 +89,90 @@ fn print_yaml(
                             Yaml::Int(i) => writeln!(f, " {}", i)?,
                             Yaml::Float(fl) => writeln!(f, " {}", fl)?,
                             Yaml::Bool(b) => writeln!(f, " {}", b)?,
-                            Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                            Yaml::Sequence(..) => {
                                 #[allow(clippy::write_with_newline)]
                                 write!(f, "\n")?;
                                 print_yaml(el, indent + INDENT_AMT, f, style)?;
+                            }
+                            Yaml::Mapping(map) => {
+                                // Print first entry on same line as "-" if key is simple
+                                if let Some((first, rest)) = map.split_first() {
+                                    let entry_indent = indent + 2;
+                                    match &first.key {
+                                        Yaml::Scalar(..)
+                                        | Yaml::String(..)
+                                        | Yaml::Int(..)
+                                        | Yaml::Float(..)
+                                        | Yaml::Bool(..) => {
+                                            // Simple key: print on same line as "-"
+                                            write!(f, " ")?;
+                                            print_yaml(&first.key, indent, f, PrintStyle::Block)?;
+                                        }
+                                        Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                            // Complex key: print on next line
+                                            #[allow(clippy::write_with_newline)]
+                                            write!(f, "\n")?;
+                                            print_yaml(&first.key, entry_indent + INDENT_AMT, f, PrintStyle::Block)?;
+                                            print_indent(entry_indent, f)?;
+                                        }
+                                    }
+                                    write!(f, ":")?;
+                                    match &first.value {
+                                        Yaml::Scalar(..)
+                                        | Yaml::String(..)
+                                        | Yaml::Int(..)
+                                        | Yaml::Float(..)
+                                        | Yaml::Bool(..) => {
+                                            write!(f, " ")?;
+                                            print_yaml(&first.value, indent, f, PrintStyle::Block)?;
+                                            #[allow(clippy::write_with_newline)]
+                                            write!(f, "\n")?;
+                                        }
+                                        Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                            #[allow(clippy::write_with_newline)]
+                                            write!(f, "\n")?;
+                                            print_yaml(&first.value, entry_indent + INDENT_AMT, f, style)?;
+                                        }
+                                    }
+                                    // Print remaining entries with indent + 2 to align with first key
+                                    for entry in rest {
+                                        match &entry.key {
+                                            Yaml::Scalar(..)
+                                            | Yaml::String(..)
+                                            | Yaml::Int(..)
+                                            | Yaml::Float(..)
+                                            | Yaml::Bool(..) => {
+                                                print_indent(entry_indent, f)?;
+                                                print_yaml(&entry.key, entry_indent, f, PrintStyle::Block)?;
+                                            }
+                                            Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                                print_yaml(&entry.key, entry_indent + INDENT_AMT, f, PrintStyle::Block)?;
+                                                print_indent(entry_indent, f)?;
+                                            }
+                                        }
+                                        write!(f, ":")?;
+                                        match &entry.value {
+                                            Yaml::Scalar(..)
+                                            | Yaml::String(..)
+                                            | Yaml::Int(..)
+                                            | Yaml::Float(..)
+                                            | Yaml::Bool(..) => {
+                                                write!(f, " ")?;
+                                                print_yaml(&entry.value, entry_indent, f, PrintStyle::Block)?;
+                                                #[allow(clippy::write_with_newline)]
+                                                write!(f, "\n")?;
+                                            }
+                                            Yaml::Sequence(..) | Yaml::Mapping(..) => {
+                                                #[allow(clippy::write_with_newline)]
+                                                write!(f, "\n")?;
+                                                print_yaml(&entry.value, entry_indent + INDENT_AMT, f, style)?;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Empty mapping
+                                    writeln!(f, " {{}}")?;
+                                }
                             }
                         }
                     }
@@ -124,7 +204,6 @@ fn print_yaml(
                             | Yaml::Bool(..) => {
                                 print_indent(indent, f)?;
                                 print_yaml(&entry.key, indent, f, PrintStyle::Block)?;
-                                write!(f, " ")?;
                             }
                             Yaml::Sequence(..) | Yaml::Mapping(..) => {
                                 print_yaml(&entry.key, indent + INDENT_AMT, f, PrintStyle::Block)?;
@@ -354,8 +433,7 @@ impl<'a> Entry<'a> {
 
 impl<'a> Display for Entry<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // match self.key
-        write!(f, "{} : {}", self.key, self.value)
+        write!(f, "{}: {}", self.key, self.value)
     }
 }
 
