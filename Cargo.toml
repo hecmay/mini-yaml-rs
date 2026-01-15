@@ -11,6 +11,7 @@ homepage = "https://github.com/hecmay/mini-yaml-rs"
 
 [dependencies]
 serde_json = "1.0"
+regex = "1"
 
 [dev-dependencies]
 paste = "0.1.6"

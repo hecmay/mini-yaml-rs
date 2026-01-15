@@ -10,6 +10,7 @@ pub(crate) type Result<T> = std::result::Result<T, YamlParseError>;
 
 use parse::Parser;
 
+use regex::Regex;
 use serde_json::{Map, Value};
 use std::{fmt, fmt::Display};
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
@@ -203,6 +204,96 @@ impl Yaml<'_> {
                 Value::Object(map)
             }
         }
+    }
+
+    /// Convert the Yaml value to a serde_json::Value with mx transformation.
+    ///
+    /// The top-level value must be an object with keys matching the format
+    /// `+name[label](value)` where `(value)` is optional.
+    /// The key becomes `+name`, with `__name` set to the `[...]` content
+    /// and `__value` set to the `(...)` content if present.
+    ///
+    /// If the format is invalid, returns `{"+error": {"__name": "error message", "__value": "yaml content"}}`
+    #[must_use]
+    pub fn to_mx(&self) -> Value {
+        // Top level must be an object (Mapping)
+        let entries = match self {
+            Yaml::Mapping(entries) => entries,
+            _ => {
+                return Self::make_mx_error(
+                    "Top level value must be an object",
+                    &self.to_string(),
+                );
+            }
+        };
+
+        // Regex to match: +name[...](...)
+        // The name part can contain dots, underscores, @, and alphanumeric chars
+        // The (...) part is optional
+        let re = Regex::new(r"^\+([^\[\]()]+)\[([^\]]*)\](?:\(([^)]*)\))?$").unwrap();
+
+        let mut result_map = Map::new();
+
+        for entry in entries {
+            let key = match &entry.key {
+                Yaml::Scalar(s) => (*s).to_string(),
+                Yaml::Int(i) => i.to_string(),
+                Yaml::Float(f) => f.to_string(),
+                Yaml::Bool(b) => b.to_string(),
+                other => other.to_json().to_string(),
+            };
+
+            if let Some(caps) = re.captures(&key) {
+                // Extract the parts
+                let name_part = caps.get(1).map_or("", |m| m.as_str());
+                let bracket_content = caps.get(2).map_or("", |m| m.as_str());
+                let paren_content = caps.get(3).map(|m| m.as_str());
+
+                // Build the new key: +name
+                let new_key = format!("+{}", name_part);
+
+                // Build the value object with __name and optionally __value
+                let mut value_obj = match entry.value.to_json() {
+                    Value::Object(m) => m,
+                    other => {
+                        // If the value is not an object, wrap it
+                        let mut m = Map::new();
+                        m.insert("__content".to_string(), other);
+                        m
+                    }
+                };
+
+                value_obj.insert("__name".to_string(), Value::String(bracket_content.to_string()));
+                if let Some(paren) = paren_content {
+                    value_obj.insert("__value".to_string(), Value::String(paren.to_string()));
+                }
+
+                result_map.insert(new_key, Value::Object(value_obj));
+            } else {
+                // Key doesn't match the expected format
+                return Self::make_mx_error(
+                    &format!(
+                        "Key '{}' does not match expected format +name[label](value)",
+                        key
+                    ),
+                    &self.to_string(),
+                );
+            }
+        }
+
+        Value::Object(result_map)
+    }
+
+    fn make_mx_error(message: &str, yaml_content: &str) -> Value {
+        let mut error_inner = Map::new();
+        error_inner.insert("__name".to_string(), Value::String(message.to_string()));
+        error_inner.insert(
+            "__value".to_string(),
+            Value::String(yaml_content.to_string()),
+        );
+        let mut error_obj = Map::new();
+        error_obj.insert("+error".to_string(), Value::Object(error_inner));
+        Value::Object(error_obj)
     }
 }
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]

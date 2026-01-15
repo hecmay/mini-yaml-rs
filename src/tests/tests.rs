@@ -812,3 +812,77 @@ outer:
     assert!(json_str.contains("inner"));
     assert!(json_str.contains("nested"));
 }
+
+// to_mx tests
+
+#[test]
+fn test_to_mx_basic() {
+    let yaml = r#"
++myKey[Display Name](some value):
+  foo: bar
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let my_key = obj.get("+myKey").unwrap().as_object().unwrap();
+    assert_eq!(my_key.get("__name").unwrap(), "Display Name");
+    assert_eq!(my_key.get("__value").unwrap(), "some value");
+    assert_eq!(my_key.get("foo").unwrap(), "bar");
+}
+
+#[test]
+fn test_to_mx_without_paren() {
+    let yaml = r#"
++settings.config[My Settings]:
+  enabled: true
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let settings = obj.get("+settings.config").unwrap().as_object().unwrap();
+    assert_eq!(settings.get("__name").unwrap(), "My Settings");
+    assert!(settings.get("__value").is_none());
+    assert_eq!(settings.get("enabled").unwrap().as_bool().unwrap(), true);
+}
+
+#[test]
+fn test_to_mx_with_special_chars() {
+    let yaml = r#"
++app.user@domain[User Name](user://id):
+  active: true
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let app = obj.get("+app.user@domain").unwrap().as_object().unwrap();
+    assert_eq!(app.get("__name").unwrap(), "User Name");
+    assert_eq!(app.get("__value").unwrap(), "user://id");
+}
+
+#[test]
+fn test_to_mx_error_not_object() {
+    let yaml = "- item1\n- item2";
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let error = obj.get("+error").unwrap().as_object().unwrap();
+    assert!(error.get("__name").unwrap().as_str().unwrap().contains("must be an object"));
+}
+
+#[test]
+fn test_to_mx_error_invalid_key() {
+    let yaml = r#"
+invalid_key:
+  foo: bar
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let error = obj.get("+error").unwrap().as_object().unwrap();
+    assert!(error.get("__name").unwrap().as_str().unwrap().contains("does not match"));
+}
