@@ -963,14 +963,14 @@ fn test_print_yaml_task_list() {
 
 #[test]
 fn test_print_type_as_tag_with_value() {
-    // {__type: "str", __value: "hello"} should print as "!str hello"
-    let yaml = map! { "__type": "str", "__value": "hello" };
-    assert_eq!(yaml.to_string(), "!str hello\n");
+    // data: {__type: "str", __value: "hello"} should print with !str tag
+    let yaml = map! { "data" => map! { "__type": "str", "__value": "hello" } };
+    assert_eq!(yaml.to_string(), "data:\n  !str hello\n");
 }
 
 #[test]
 fn test_print_type_as_tag_with_fields() {
-    // {__type: "person", name: "John"} should print as "!person\nname: John"
-    let yaml = map! { "__type" => "person"; "name" => "John" };
-    assert_eq!(yaml.to_string(), "!person\nname: John\n");
+    // user: {__type: "person", name: "John"} should print with !person tag
+    let yaml = map! { "user" => map! { "__type" => "person"; "name" => "John" } };
+    assert_eq!(yaml.to_string(), "user:\n  !person\n  name: John\n");
 }
