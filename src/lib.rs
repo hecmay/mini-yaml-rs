@@ -64,25 +64,18 @@ fn print_indent(indent: usize, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{:indent$}", "", indent = indent)
 }
 
-/// Check if a mapping represents a tagged value (has __type as first key).
+/// Check if a Yaml node is a tagged mapping (has __type as first key).
 /// Returns the tag name if so.
-fn get_tag_name<'a>(map: &'a [Entry<'a>]) -> Option<&'a str> {
-    if let Some(first) = map.first() {
-        if let Yaml::Scalar("__type") = &first.key {
-            if let Yaml::Scalar(tag) = &first.value {
-                return Some(tag);
-            }
-        }
-    }
-    None
-}
-
-/// Check if a Yaml value is a tagged mapping and return the tag name.
-fn get_yaml_tag_name<'a>(node: &'a Yaml<'a>) -> Option<&'a str> {
-    if let Yaml::Mapping(map) = node {
-        get_tag_name(map)
-    } else {
-        None
+fn get_tag_name<'a>(node: &'a Yaml<'a>) -> Option<&'a str> {
+    match node {
+        Yaml::Mapping(map) => match map.first() {
+            Some(Entry {
+                key: Yaml::Scalar("__type"),
+                value: Yaml::Scalar(tag),
+            }) => Some(tag),
+            _ => None,
+        },
+        _ => None,
     }
 }
 
@@ -248,7 +241,7 @@ fn print_yaml(
             match style {
                 PrintStyle::Block => {
                     // Check if this is a tagged mapping (__type field)
-                    if let Some(tag) = get_tag_name(map) {
+                    if let Some(tag) = get_tag_name(node) {
                         print_indent(indent, f)?;
                         write!(f, "!{}", tag)?;
                         // Check if it's __type + __value only
@@ -330,7 +323,7 @@ fn print_yaml(
                         }
                         write!(f, ":")?;
                         // Check if value is a tagged mapping - print inline
-                        if let Some(tag) = get_yaml_tag_name(&entry.value) {
+                        if let Some(tag) = get_tag_name(&entry.value) {
                             if let Yaml::Mapping(value_map) = &entry.value {
                                 write!(f, " !{}", tag)?;
                                 // Check if it's __type + __value only
