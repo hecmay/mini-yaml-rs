@@ -4,16 +4,6 @@ use core::iter::{Iterator, Peekable};
 use std::str::Bytes;
 
 use crate::Result;
-
-// Implementation lifted from std, as it's currently only on Nightly. It's such a simple macro that it's low risk to duplicate it here (and better than writing one myself)
-macro_rules! matches {
-    ($expression:expr, $( $pattern:pat )|+ $( if $guard: expr )?) => {
-        match $expression {
-            $( $pattern )|+ $( if $guard )? => true,
-            _ => false
-        }
-    }
-}
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ParseContext {
@@ -342,63 +332,12 @@ impl<'a, 'b> Parser<'a> {
     }
 
     /// Parse a tagged value (!tagname value).
-    /// For !int, !float, !bool tags, returns the value directly (with type coercion if needed).
-    /// For other tags, wraps the result in a mapping with __type field.
+    /// All tags are wrapped in a mapping with __type field.
     fn parse_tagged_value(&mut self) -> Result<Yaml<'a>> {
         let tag_name = self.parse_tag()?;
 
         // Parse the value following the tag
         let value = self.parse()?;
-
-        // Handle type casting for primitive tags
-        match tag_name {
-            "int" => {
-                return match value {
-                    Yaml::Int(i) => Ok(Yaml::Int(i)),
-                    Yaml::Float(f) => Ok(Yaml::Int(f as i64)),
-                    Yaml::Scalar(s) => {
-                        let parsed: i64 = s.parse().map_err(|_| {
-                            self.make_parse_error_with_msg(format!(
-                                "cannot parse '{}' as integer",
-                                s
-                            ))
-                        })?;
-                        Ok(Yaml::Int(parsed))
-                    }
-                    _ => self.parse_error_with_msg("!int tag requires a numeric value"),
-                };
-            }
-            "float" => {
-                return match value {
-                    Yaml::Float(f) => Ok(Yaml::Float(f)),
-                    Yaml::Int(i) => Ok(Yaml::Float(i as f64)),
-                    Yaml::Scalar(s) => {
-                        let parsed: f64 = s.parse().map_err(|_| {
-                            self.make_parse_error_with_msg(format!("cannot parse '{}' as float", s))
-                        })?;
-                        Ok(Yaml::Float(parsed))
-                    }
-                    _ => self.parse_error_with_msg("!float tag requires a numeric value"),
-                };
-            }
-            "bool" => {
-                return match value {
-                    Yaml::Bool(b) => Ok(Yaml::Bool(b)),
-                    Yaml::Int(i) => Ok(Yaml::Bool(i != 0)),
-                    Yaml::Scalar(s) => {
-                        let parsed = Self::parse_bool(s).ok_or_else(|| {
-                            self.make_parse_error_with_msg(format!(
-                                "cannot parse '{}' as boolean",
-                                s
-                            ))
-                        })?;
-                        Ok(Yaml::Bool(parsed))
-                    }
-                    _ => self.parse_error_with_msg("!bool tag requires a boolean value"),
-                };
-            }
-            _ => {} // Fall through to wrapping behavior
-        }
 
         // Wrap the result based on value type
         let result = match value {

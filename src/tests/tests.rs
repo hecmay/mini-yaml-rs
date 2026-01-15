@@ -576,82 +576,54 @@ mk_test!(
     r"! value" => fail
 );
 
-// Type casting tests
+// Tag tests - all tags create __type mappings
 
 #[test]
-fn test_int_tag_casts() {
-    assert_eq!(crate::parse("!int 42").unwrap(), crate::Yaml::Int(42));
+fn test_int_tag_creates_type_mapping() {
+    let parsed = crate::parse("!int 42").unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].key, crate::Yaml::Scalar("__type"));
+        assert_eq!(entries[0].value, crate::Yaml::Scalar("int"));
+        assert_eq!(entries[1].key, crate::Yaml::Scalar("__value"));
+        assert_eq!(entries[1].value, crate::Yaml::Int(42));
+    } else {
+        panic!("Expected mapping");
+    }
 }
 
 #[test]
-fn test_int_tag_negative() {
-    assert_eq!(crate::parse("!int -123").unwrap(), crate::Yaml::Int(-123));
+fn test_int_tag_with_non_numeric() {
+    // Now accepts any value - no validation
+    let parsed = crate::parse("!int abc").unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries[0].value, crate::Yaml::Scalar("int"));
+        assert_eq!(entries[1].value, crate::Yaml::Scalar("abc"));
+    } else {
+        panic!("Expected mapping");
+    }
 }
 
 #[test]
-fn test_int_tag_invalid() {
-    assert!(crate::parse("!int abc").is_err());
+fn test_float_tag_creates_type_mapping() {
+    let parsed = crate::parse("!float 3.14").unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries[0].value, crate::Yaml::Scalar("float"));
+        assert_eq!(entries[1].value, crate::Yaml::Float(3.14));
+    } else {
+        panic!("Expected mapping");
+    }
 }
 
 #[test]
-fn test_float_tag_casts() {
-    assert_eq!(
-        crate::parse("!float 3.14").unwrap(),
-        crate::Yaml::Float(3.14)
-    );
-}
-
-#[test]
-fn test_float_tag_negative() {
-    assert_eq!(
-        crate::parse("!float -2.5").unwrap(),
-        crate::Yaml::Float(-2.5)
-    );
-}
-
-#[test]
-fn test_float_tag_invalid() {
-    assert!(crate::parse("!float notafloat").is_err());
-}
-
-#[test]
-fn test_bool_tag_true() {
-    assert_eq!(crate::parse("!bool true").unwrap(), crate::Yaml::Bool(true));
-}
-
-#[test]
-fn test_bool_tag_false() {
-    assert_eq!(
-        crate::parse("!bool false").unwrap(),
-        crate::Yaml::Bool(false)
-    );
-}
-
-#[test]
-fn test_bool_tag_yes() {
-    assert_eq!(crate::parse("!bool yes").unwrap(), crate::Yaml::Bool(true));
-}
-
-#[test]
-fn test_bool_tag_no() {
-    assert_eq!(crate::parse("!bool no").unwrap(), crate::Yaml::Bool(false));
-}
-
-#[test]
-fn test_bool_tag_on_off() {
-    assert_eq!(crate::parse("!bool on").unwrap(), crate::Yaml::Bool(true));
-    assert_eq!(crate::parse("!bool off").unwrap(), crate::Yaml::Bool(false));
-}
-
-#[test]
-fn test_bool_tag_one_zero() {
-    assert_eq!(crate::parse("!bool 1").unwrap(), crate::Yaml::Bool(true));
-    assert_eq!(crate::parse("!bool 0").unwrap(), crate::Yaml::Bool(false));
-}
-
-#[test]
-fn test_bool_tag_invalid() {
-    assert!(crate::parse("!bool maybe").is_err());
+fn test_bool_tag_creates_type_mapping() {
+    let parsed = crate::parse("!bool true").unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries[0].value, crate::Yaml::Scalar("bool"));
+        assert_eq!(entries[1].value, crate::Yaml::Bool(true));
+    } else {
+        panic!("Expected mapping");
+    }
 }
 
 #[test]
