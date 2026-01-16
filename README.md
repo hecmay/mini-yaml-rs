@@ -7,8 +7,42 @@ A minimalist, zero-copy YAML parser for Rust. Supports sequences, mappings, and 
 - Zero-copy parsing (returns references to input)
 - Sequences and mappings (flow and block styles)
 - Custom tag support: `!tagname` becomes `__type: "tagname"`
+- Works in both Rust backend (Tauri) and WebAssembly
+
+## Installation
+
+### Rust (Cargo)
+
+```toml
+[dependencies]
+mini-yaml-rs = "0.1"
+```
+
+### JavaScript/TypeScript (npm)
+
+```bash
+npm install mini-yaml-rs
+```
+
+## Building
+
+```bash
+# Build Rust library (for Tauri/backend)
+make build-rust
+
+# Build WASM for bundlers (Vite, webpack)
+make build
+
+# Build WASM for direct browser use
+make build-web
+
+# Build WASM for Node.js
+make build-node
+```
 
 ## Usage
+
+### Rust
 
 ```rust
 use mini_yaml_rs::parse;
@@ -118,6 +152,50 @@ on/off        # → true/false (as boolean)
 'true'        # → "true" (string, quotes stripped)
 ```
 
+### JavaScript/TypeScript (WASM)
+
+```typescript
+import init, { parseYaml, parseYamlToMx, printYaml } from 'mini-yaml-rs';
+
+// Initialize WASM module
+await init();
+
+// Parse YAML → JavaScript object (no JSON.parse needed)
+const obj = parseYaml(`
+name: hello
+value: 42
+items:
+  - one
+  - two
+`);
+console.log(obj.name);   // "hello"
+console.log(obj.value);  // 42
+console.log(obj.items);  // ["one", "two"]
+
+// Convert JavaScript object → YAML string
+const yaml = printYaml({
+  title: "My Config",
+  enabled: true,
+  settings: {
+    theme: "dark",
+    fontSize: 14
+  }
+});
+console.log(yaml);
+// title: My Config
+// enabled: true
+// settings:
+//   theme: dark
+//   fontSize: 14
+
+// Parse with mx transformation
+const mx = parseYamlToMx(`
++setup[Settings](db://settings):
+  title: Settings
+`);
+console.log(mx["+setup"].__name);   // "Settings"
+console.log(mx["+setup"].__value);  // "db://settings"
+```
 
 ## License
 

@@ -6,8 +6,6 @@ mod tests;
 
 pub use crate::errors::YamlParseError;
 
-use wasm_bindgen::prelude::*;
-
 pub(crate) type Result<T> = std::result::Result<T, YamlParseError>;
 
 use parse::Parser;
@@ -423,6 +421,37 @@ impl Yaml<'_> {
         error_obj.insert("+error".to_string(), Value::Object(error_inner));
         Value::Object(error_obj)
     }
+
+    /// Convert a serde_json::Value to a Yaml value.
+    /// This creates an owned Yaml structure (uses String variant for strings).
+    #[must_use]
+    pub fn from_json(value: &Value) -> Yaml<'static> {
+        match value {
+            Value::Null => Yaml::String("null".to_string()),
+            Value::Bool(b) => Yaml::Bool(*b),
+            Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Yaml::Int(i)
+                } else if let Some(f) = n.as_f64() {
+                    Yaml::Float(f)
+                } else {
+                    Yaml::String(n.to_string())
+                }
+            }
+            Value::String(s) => Yaml::String(s.clone()),
+            Value::Array(arr) => Yaml::Sequence(arr.iter().map(Yaml::from_json).collect()),
+            Value::Object(obj) => {
+                let entries = obj
+                    .iter()
+                    .map(|(k, v)| Entry {
+                        key: Yaml::String(k.clone()),
+                        value: Yaml::from_json(v),
+                    })
+                    .collect();
+                Yaml::Mapping(entries)
+            }
+        }
+    }
 }
 #[cfg_attr(test, derive(serde::Deserialize, serde::Serialize))]
 #[derive(Clone, Debug, PartialEq)]
@@ -459,19 +488,34 @@ pub fn parse(input: &str) -> Result<Yaml<'_>> {
 }
 
 // WASM bindings
+#[cfg(feature = "wasm")]
+mod wasm {
+    use super::*;
+    use wasm_bindgen::prelude::*;
 
-/// Parse YAML string and return JSON string.
-/// Returns a JSON string on success, or throws an error on parse failure.
-#[wasm_bindgen(js_name = parseYaml)]
-pub fn parse_yaml_to_json(input: &str) -> std::result::Result<String, JsError> {
-    let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
-    Ok(yaml.to_json().to_string())
-}
+    /// Parse YAML string and return JSON object directly.
+    /// Returns a JavaScript object/array on success, or throws an error on parse failure.
+    #[wasm_bindgen(js_name = parseYaml)]
+    pub fn parse_yaml_to_json(input: &str) -> std::result::Result<JsValue, JsError> {
+        let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
+        serde_wasm_bindgen::to_value(&yaml.to_json()).map_err(|e| JsError::new(&e.to_string()))
+    }
 
-/// Parse YAML string and return mx-formatted JSON string.
-/// Returns a JSON string with mx transformation on success, or throws an error on parse failure.
-#[wasm_bindgen(js_name = parseYamlToMx)]
-pub fn parse_yaml_to_mx(input: &str) -> std::result::Result<String, JsError> {
-    let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
-    Ok(yaml.to_mx().to_string())
+    /// Parse YAML string and return mx-formatted JSON object directly.
+    /// Returns a JavaScript object with mx transformation on success, or throws an error on parse failure.
+    #[wasm_bindgen(js_name = parseYamlToMx)]
+    pub fn parse_yaml_to_mx(input: &str) -> std::result::Result<JsValue, JsError> {
+        let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
+        serde_wasm_bindgen::to_value(&yaml.to_mx()).map_err(|e| JsError::new(&e.to_string()))
+    }
+
+    /// Convert JSON to YAML string.
+    /// Takes a JavaScript object/array and returns a YAML string representation.
+    #[wasm_bindgen(js_name = printYaml)]
+    pub fn print_yaml_from_json(input: JsValue) -> std::result::Result<String, JsError> {
+        let json: serde_json::Value =
+            serde_wasm_bindgen::from_value(input).map_err(|e| JsError::new(&e.to_string()))?;
+        let yaml = Yaml::from_json(&json);
+        Ok(yaml.to_string())
+    }
 }
