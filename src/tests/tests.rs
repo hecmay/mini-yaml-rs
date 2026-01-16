@@ -352,7 +352,7 @@ r#"
 mk_test!(
 nested seq in complex mapping with empty line;
 r#"
-+magix.settings.states[magix-system-states-demo]():
++test.settings.states[test-system-states-demo]():
   opened_apps:
     - Magix-Introduction.md
     - Ex1-Personal-Productivity.md
@@ -362,10 +362,10 @@ r#"
     - name: Magix Docs
       icon: book
       command: |
-        { open } = import('magix');
+        { open } = import('test');
         open("Magix-Introduction.md");
 "# => map! {
-    "+magix.settings.states[magix-system-states-demo]()" => map! {
+    "+test.settings.states[test-system-states-demo]()" => map! {
         "opened_apps" => seq!(
             "Magix-Introduction.md",
             "Ex1-Personal-Productivity.md",
@@ -375,7 +375,7 @@ r#"
             map! {
                 "name" => "Magix Docs";
                 "icon" => "book";
-                "command" => crate::Yaml::String("{ open } = import('magix');\nopen(\"Magix-Introduction.md\");\n".to_string())
+                "command" => crate::Yaml::String("{ open } = import('test');\nopen(\"Magix-Introduction.md\");\n".to_string())
             }
         )
     }
@@ -753,7 +753,7 @@ fn test_literal_block_scalar_strip() {
 #[test]
 fn test_literal_block_in_complex_yaml() {
     let yaml = r#"
-+setup[Magix RTE Settings](magix://prelude/settings):
++setup[Magix RTE Settings](test://prelude/settings):
     title: Magix RTE Settings
     authors[]:
       - !mod +@[Me](shawnx)
@@ -1043,4 +1043,56 @@ fn test_to_mx_empty_mx_value() {
     let shop = obj.get("+shop").unwrap().as_object().unwrap();
     assert_eq!(shop.get("__name").unwrap(), "Your Online Shop");
     assert_eq!(shop.get("__value").unwrap(), "");
+}
+
+// Regression test: colons inside brackets/parens should not break scalar key parsing
+#[test]
+fn test_colon_inside_brackets_in_key() {
+    // The colon after "Magix" should NOT be treated as a key-value separator
+    // because it's inside the square brackets
+    let yaml = r#"
++test.banner[Magix: Supercharge LLMs](http://example.com/bg.jpg):
+  offset: 100
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let expected = map! {
+        "+test.banner[Magix: Supercharge LLMs](http://example.com/bg.jpg)" => map! {
+            "offset" => crate::Yaml::Int(100)
+        }
+    };
+    assert_eq!(parsed, expected);
+}
+
+#[test]
+fn test_colon_inside_brackets_multiple() {
+    // Multiple colons inside brackets
+    let yaml = r#"
++test.images[Like building furniture: not 3D-printing: use pre-made parts.]():
+  images:
+    - http://example.com/img0.png
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let expected = map! {
+        "+test.images[Like building furniture: not 3D-printing: use pre-made parts.]()" => map! {
+            "images" => seq!("http://example.com/img0.png")
+        }
+    };
+    assert_eq!(parsed, expected);
+}
+
+#[test]
+fn test_to_mx_colon_inside_brackets() {
+    // Test that to_mx correctly extracts __name with colons
+    let yaml = r#"
++test.banner[Title: Subtitle](http://example.com):
+  foo: bar
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let banner = obj.get("+test.banner").unwrap().as_object().unwrap();
+    assert_eq!(banner.get("__name").unwrap(), "Title: Subtitle");
+    assert_eq!(banner.get("__value").unwrap(), "http://example.com");
+    assert_eq!(banner.get("foo").unwrap(), "bar");
 }

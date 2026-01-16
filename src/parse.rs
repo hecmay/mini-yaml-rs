@@ -256,8 +256,9 @@ impl<'a, 'b> Parser<'a> {
             b'\"' => {
                 self.advance()?; // consume opening quote
                 let scal_start = self.idx; // start after the quote
+                let mut accept_dq = |tok: u8, _: Option<u8>| !matches!(tok, b'\"');
                 let _ = self
-                    .take_while(|tok, _| !matches!(tok, b'\"'))
+                    .take_while(&mut accept_dq)
                     .map_err(|_| {
                         self.make_parse_error_with_msg("unexpected end of input; expected '\"'")
                     })?;
@@ -270,7 +271,8 @@ impl<'a, 'b> Parser<'a> {
             b'\'' => {
                 self.advance()?; // consume opening quote
                 let scal_start = self.idx; // start after the quote
-                self.take_while(|tok, _| !matches!(tok, b'\''))
+                let mut accept_sq = |tok: u8, _: Option<u8>| !matches!(tok, b'\'');
+                self.take_while(&mut accept_sq)
                     .map_err(|_| {
                         self.make_parse_error_with_msg("unexpected end of input; expected '\''")
                     })?;
@@ -280,12 +282,36 @@ impl<'a, 'b> Parser<'a> {
                 Ok(Yaml::Scalar(content))
             }
             _ => {
-                let accept = |tok: u8, nxt: Option<u8>| tok.is_ns_plain(nxt, context);
-                let (start, mut end) = self.take_while(&accept).unwrap_or_else(|val| val);
+                // Track bracket/paren depth to allow colons inside [] and ()
+                let mut bracket_depth: i32 = 0;
+                let mut paren_depth: i32 = 0;
+
+                let mut accept = |tok: u8, nxt: Option<u8>| {
+                    // Update bracket/paren depth
+                    match tok {
+                        b'[' => bracket_depth += 1,
+                        b']' => bracket_depth = (bracket_depth - 1).max(0),
+                        b'(' => paren_depth += 1,
+                        b')' => paren_depth = (paren_depth - 1).max(0),
+                        _ => {}
+                    }
+
+                    // When inside brackets or parens, allow colons even if followed by whitespace
+                    if bracket_depth > 0 || paren_depth > 0 {
+                        // Inside brackets/parens: allow everything except linebreak
+                        // But still stop at # for comments
+                        !tok.is_linebreak() && tok != b'#'
+                    } else {
+                        // Normal is_ns_plain behavior
+                        tok.is_ns_plain(nxt, context)
+                    }
+                };
+
+                let (start, mut end) = self.take_while(&mut accept).unwrap_or_else(|val| val);
                 loop {
                     self.chomp_whitespace();
                     self.chomp_comment();
-                    let (s, e) = self.take_while(&accept).unwrap_or_else(|val| val);
+                    let (s, e) = self.take_while(&mut accept).unwrap_or_else(|val| val);
                     if s == e {
                         break;
                     } else {
@@ -908,10 +934,13 @@ impl<'a, 'b> Parser<'a> {
         }
     }
 
-    fn take_while(
+    fn take_while<F>(
         &mut self,
-        accept: impl Fn(u8, Option<u8>) -> bool,
-    ) -> std::result::Result<(usize, usize), (usize, usize)> {
+        accept: &mut F,
+    ) -> std::result::Result<(usize, usize), (usize, usize)>
+    where
+        F: FnMut(u8, Option<u8>) -> bool,
+    {
         let start = self.idx;
         let mut end = start;
         loop {
