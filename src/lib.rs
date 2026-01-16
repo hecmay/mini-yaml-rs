@@ -306,6 +306,21 @@ impl Yaml<'_> {
     /// If the format is invalid, returns `{"+error": {"__name": "error message", "__value": "yaml content"}}`
     #[must_use]
     pub fn to_mx(&self) -> Value {
+        // Handle top-level scalar that matches mx key pattern (e.g., "+shop[Name]()")
+        if let Yaml::Scalar(s) = self {
+            if let Some((name_part, bracket_content, paren_content)) = Self::parse_mx_key(s) {
+                let new_key = format!("+{}", name_part);
+                let mut value_obj = Map::new();
+                value_obj.insert("__name".to_string(), Value::String(bracket_content));
+                if let Some(paren) = paren_content {
+                    value_obj.insert("__value".to_string(), Value::String(paren));
+                }
+                let mut result_map = Map::new();
+                result_map.insert(new_key, Value::Object(value_obj));
+                return Value::Object(result_map);
+            }
+        }
+
         // Top level must be an object (Mapping)
         let entries = match self {
             Yaml::Mapping(entries) => entries,

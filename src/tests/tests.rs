@@ -1030,3 +1030,17 @@ fn test_multiple_sibling_tags_round_trip() {
     let printed = parsed.to_string();
     assert_eq!(printed, yaml);
 }
+
+#[test]
+fn test_to_mx_empty_mx_value() {
+    // Mx key with empty parentheses, no colon - parsed as scalar
+    // to_mx should recognize the pattern and convert to object instance
+    let yaml = r#"+shop[Your Online Shop]()"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let shop = obj.get("+shop").unwrap().as_object().unwrap();
+    assert_eq!(shop.get("__name").unwrap(), "Your Online Shop");
+    assert_eq!(shop.get("__value").unwrap(), "");
+}
