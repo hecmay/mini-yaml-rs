@@ -91,11 +91,7 @@ const INDENT_AMT: usize = 2;
 
 /// Print a value after ":" has been written. Handles tagged mappings inline.
 /// Returns true if it handled the value (used for continue in loops).
-fn print_value_after_colon(
-    value: &Yaml<'_>,
-    indent: usize,
-    f: &mut fmt::Formatter,
-) -> fmt::Result {
+fn print_value_after_colon(value: &Yaml<'_>, indent: usize, f: &mut fmt::Formatter) -> fmt::Result {
     // Check if value is a tagged mapping - print tag inline
     if let Some(tag) = get_tag_name(value) {
         if let Yaml::Mapping(value_map) = value {
