@@ -57,7 +57,7 @@ Output:
 }
 ```
 
-### MX Format (`to_mx`)
+### Magix Format
 
 The `to_mx()` method transforms keys in `+name[label](value)` format:
 
@@ -99,7 +99,7 @@ Tags are converted to `__type` fields:
 !custom_tag [1, 2, 3]   # → {__type: "custom_tag", __value: [1, 2, 3]}
 ```
 
-### Native Type Conversion
+### Type Inference
 
 Unquoted scalar values are automatically converted to native types:
 

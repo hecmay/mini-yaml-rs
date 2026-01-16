@@ -974,3 +974,59 @@ fn test_print_type_as_tag_with_fields() {
     let yaml = map! { "user" => map! { "__type" => "person"; "name" => "John" } };
     assert_eq!(yaml.to_string(), "user: !person\n  name: John\n");
 }
+
+#[test]
+fn test_print_yaml_with_tags_round_trip() {
+    let yaml = r#"config:
+  database: !connection
+    host: localhost
+    port: !int { __name: "port", __value: 5432 }
+  cache: !redis enabled
+"#;
+    let expected = r#"config:
+  database: !connection
+    host: localhost
+    port: !int
+      __name: port
+      __value: 5432
+  cache: !redis enabled
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, expected);
+}
+
+#[test]
+fn test_tag_with_value_round_trip() {
+    // Simple tag with __value should round-trip as "key: !tag value"
+    let yaml = "name: !string John\n";
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, yaml);
+}
+
+#[test]
+fn test_deeply_nested_tags_round_trip() {
+    // Three levels of nested tags
+    let yaml = r#"root: !outer
+  level1: !middle
+    level2: !inner
+      value: deep
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, yaml);
+}
+
+#[test]
+fn test_multiple_sibling_tags_round_trip() {
+    // Multiple tagged values at the same level
+    let yaml = r#"data:
+  name: !string Alice
+  age: !custom {}
+  active: !bool true
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let printed = parsed.to_string();
+    assert_eq!(printed, yaml);
+}
