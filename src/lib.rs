@@ -504,16 +504,25 @@ pub fn parse(input: &str) -> Result<Yaml<'_>> {
 
 // WASM bindings
 #[cfg(feature = "wasm")]
-mod wasm {
+pub(crate) mod wasm {
     use super::*;
+    use serde::Serialize;
     use wasm_bindgen::prelude::*;
+
+    /// Helper to serialize a value as a plain JS object (not Map)
+    fn to_js_object<T: Serialize>(value: &T) -> std::result::Result<JsValue, JsError> {
+        let serializer = serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        value
+            .serialize(&serializer)
+            .map_err(|e| JsError::new(&e.to_string()))
+    }
 
     /// Parse YAML string and return JSON object directly.
     /// Returns a JavaScript object/array on success, or throws an error on parse failure.
     #[wasm_bindgen(js_name = parseYaml)]
     pub fn parse_yaml_to_json(input: &str) -> std::result::Result<JsValue, JsError> {
         let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
-        serde_wasm_bindgen::to_value(&yaml.to_json()).map_err(|e| JsError::new(&e.to_string()))
+        to_js_object(&yaml.to_json())
     }
 
     /// Parse YAML string and return mx-formatted JSON object directly.
@@ -521,7 +530,7 @@ mod wasm {
     #[wasm_bindgen(js_name = parseYamlToMx)]
     pub fn parse_yaml_to_mx(input: &str) -> std::result::Result<JsValue, JsError> {
         let yaml = parse(input).map_err(|e| JsError::new(&e.to_string()))?;
-        serde_wasm_bindgen::to_value(&yaml.to_mx()).map_err(|e| JsError::new(&e.to_string()))
+        to_js_object(&yaml.to_mx())
     }
 
     /// Convert JSON to YAML string.

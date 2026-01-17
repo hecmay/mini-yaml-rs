@@ -15,7 +15,7 @@ A minimalist, zero-copy YAML parser for Rust. Supports sequences, mappings, and 
 
 ```toml
 [dependencies]
-mini-yaml-rs = "0.1"
+mini-yaml-rs = "0.2"
 ```
 
 ### JavaScript/TypeScript (npm)
@@ -153,6 +153,8 @@ on/off        # → true/false (as boolean)
 ```
 
 ### JavaScript/TypeScript (WASM)
+
+All functions return plain JavaScript objects (not `Map` objects), making them easy to use with standard JS object syntax.
 
 ```typescript
 import init, { parseYaml, parseYamlToMx, printYaml } from 'mini-yaml-rs';
