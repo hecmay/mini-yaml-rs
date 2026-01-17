@@ -257,11 +257,9 @@ impl<'a, 'b> Parser<'a> {
                 self.advance()?; // consume opening quote
                 let scal_start = self.idx; // start after the quote
                 let mut accept_dq = |tok: u8, _: Option<u8>| !matches!(tok, b'\"');
-                let _ = self
-                    .take_while(&mut accept_dq)
-                    .map_err(|_| {
-                        self.make_parse_error_with_msg("unexpected end of input; expected '\"'")
-                    })?;
+                let _ = self.take_while(&mut accept_dq).map_err(|_| {
+                    self.make_parse_error_with_msg("unexpected end of input; expected '\"'")
+                })?;
                 let scal_end = self.idx; // end before the closing quote
                 self.bump(); // consume closing quote
                 let content = self.slice_range((scal_start, scal_end));
@@ -272,10 +270,9 @@ impl<'a, 'b> Parser<'a> {
                 self.advance()?; // consume opening quote
                 let scal_start = self.idx; // start after the quote
                 let mut accept_sq = |tok: u8, _: Option<u8>| !matches!(tok, b'\'');
-                self.take_while(&mut accept_sq)
-                    .map_err(|_| {
-                        self.make_parse_error_with_msg("unexpected end of input; expected '\''")
-                    })?;
+                self.take_while(&mut accept_sq).map_err(|_| {
+                    self.make_parse_error_with_msg("unexpected end of input; expected '\''")
+                })?;
                 let scal_end = self.idx; // end before the closing quote
                 self.bump(); // consume closing quote
                 let content = self.slice_range((scal_start, scal_end));
