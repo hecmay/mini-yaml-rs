@@ -82,6 +82,37 @@ mk_test!(
     r#"[" elem " , [ a, 'b ' , "   c "]]"# => seq!(" elem ", seq!("a", "b ", "   c "))
 );
 
+// Multi-line flow sequences
+
+mk_test!(
+    multi line flow sequence simple;
+    r#"[
+  a,
+  b,
+  c
+]"# => seq!("a", "b", "c")
+);
+
+mk_test!(
+    multi line flow sequence with comments;
+    r#"[
+  a,  # first item
+  b,  # second item
+  c   # third item
+]"# => seq!("a", "b", "c")
+);
+
+mk_test!(
+    multi line flow sequence nested;
+    r#"[
+  [1, 2, 3],
+  [4, 5, 6]
+]"# => seq!(
+        seq!(crate::Yaml::Int(1), crate::Yaml::Int(2), crate::Yaml::Int(3)),
+        seq!(crate::Yaml::Int(4), crate::Yaml::Int(5), crate::Yaml::Int(6))
+    )
+);
+
 // Flow mappings
 
 mk_test!(
@@ -127,6 +158,44 @@ mk_test!(
     r"{ { a   map : as a key} : { 'a map ': as a value }   }" => map! {
         map! { "a   map" : "as a key" } => map! { "a map " : "as a value" }
     }
+);
+
+// Multi-line flow mappings
+
+mk_test!(
+    multi line flow mapping simple;
+    r#"{
+  k1: v1,
+  k2: v2
+}"# => map!{ "k1" : "v1", "k2" : "v2" }
+);
+
+mk_test!(
+    multi line flow mapping with comments;
+    r#"{
+  name: John,  # user name
+  city: NYC    # user city
+}"# => map!{ "name" : "John", "city" : "NYC" }
+);
+
+mk_test!(
+    multi line flow mapping nested;
+    r#"{
+  outer: {
+    inner: value
+  }
+}"# => map!{ "outer" => map!{ "inner" : "value" } }
+);
+
+mk_test!(
+    multi line flow mapping with sequence;
+    r#"{
+  items: [
+    a,
+    b,
+    c
+  ]
+}"# => map!{ "items" => seq!("a", "b", "c") }
 );
 
 // Block Sequence

@@ -668,6 +668,13 @@ impl<'a, 'b> Parser<'a> {
                 b',' => {
                     self.advance()?;
                 }
+                b' ' | b'\t' => self.chomp_whitespace(),
+                b'\n' | b'\r' => {
+                    if !self.bump_newline() {
+                        return self.parse_error_with_msg("unexpected end of input in flow mapping");
+                    }
+                }
+                b'#' => self.chomp_comment(),
                 _ => {
                     self.expected.push(b':');
                     self.start_context(ParseContextKind::FlowMapping)?;
@@ -811,24 +818,39 @@ impl<'a, 'b> Parser<'a> {
                             return Ok(Yaml::Sequence(elements));
                         }
                         b' ' | b'\t' => self.chomp_whitespace(),
-
+                        b'\n' | b'\r' => {
+                            if !self.bump_newline() {
+                                return self.parse_error_with_msg("unexpected end of input in flow sequence");
+                            }
+                        }
                         b'#' => self.chomp_comment(),
                         _ => {
                             let elem = self.parse()?;
                             elements.push(elem);
-                            self.chomp_whitespace();
+
+                            // Skip whitespace, newlines, and comments after element
+                            loop {
+                                match self.current {
+                                    b' ' | b'\t' => self.chomp_whitespace(),
+                                    b'\n' | b'\r' => {
+                                        if !self.bump_newline() {
+                                            return self.parse_error_with_msg("unexpected end of input in flow sequence");
+                                        }
+                                    }
+                                    b'#' => self.chomp_comment(),
+                                    _ => break,
+                                }
+                            }
 
                             match self.current {
                                 b',' => {
                                     self.advance()?;
                                 }
-                                b'#' => self.chomp_comment(),
                                 b']' => {
                                     self.bump();
                                     self.end_context(ParseContextKind::Flow)?;
                                     return Ok(Yaml::Sequence(elements));
                                 }
-                                // TODO: Provide error message
                                 _ => {
                                     return self
                                         .parse_error_with_msg("failed to parse flow sequence")

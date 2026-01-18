@@ -21,7 +21,7 @@ build-rust:
 	cargo build --release
 
 # Build for bundlers (default WASM target)
-build: build-bundler
+build: build-web
 
 build-bundler:
 	wasm-pack build --target bundler --release --features wasm
