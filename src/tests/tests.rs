@@ -1165,3 +1165,124 @@ fn test_to_mx_colon_inside_brackets() {
     assert_eq!(banner.get("__value").unwrap(), "http://example.com");
     assert_eq!(banner.get("foo").unwrap(), "bar");
 }
+
+// UTF-8 and field order tests
+
+#[test]
+fn test_utf8_chinese_in_block_scalar() {
+    // Test that Chinese characters in literal block scalars are preserved correctly
+    let yaml = r#"info: |
+  请输入简短的描述
+  最多200字
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        assert_eq!(entries.len(), 1);
+        if let crate::Yaml::String(s) = &entries[0].value {
+            assert!(s.contains("请输入简短的描述"), "Chinese text not preserved: {}", s);
+            assert!(s.contains("最多200字"), "Chinese text not preserved: {}", s);
+        } else {
+            panic!("Expected String for block scalar");
+        }
+    } else {
+        panic!("Expected mapping");
+    }
+}
+
+#[test]
+fn test_utf8_chinese_in_block_scalar_to_json() {
+    // Test that Chinese characters survive YAML -> JSON conversion
+    let yaml = r#"info: |
+  你好世界
+  这是测试
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let obj = json.as_object().unwrap();
+    let info = obj.get("info").unwrap().as_str().unwrap();
+    assert!(info.contains("你好世界"), "Chinese not in JSON: {}", info);
+    assert!(info.contains("这是测试"), "Chinese not in JSON: {}", info);
+}
+
+#[test]
+fn test_utf8_mixed_content_block_scalar() {
+    // Test mixed ASCII and multi-byte UTF-8 content
+    let yaml = r#"description: |
+  Hello 世界
+  Price: ¥100
+  Temperature: 25°C
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    if let crate::Yaml::Mapping(entries) = parsed {
+        if let crate::Yaml::String(s) = &entries[0].value {
+            assert!(s.contains("Hello 世界"), "Mixed content not preserved: {}", s);
+            assert!(s.contains("¥100"), "Yen symbol not preserved: {}", s);
+            assert!(s.contains("25°C"), "Degree symbol not preserved: {}", s);
+        } else {
+            panic!("Expected String");
+        }
+    } else {
+        panic!("Expected mapping");
+    }
+}
+
+#[test]
+fn test_field_order_preserved_in_json() {
+    // Test that field order is preserved when converting to JSON
+    // This requires serde_json's preserve_order feature
+    let yaml = r#"
+zebra: 1
+alpha: 2
+mike: 3
+beta: 4
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let obj = json.as_object().unwrap();
+
+    // Check that keys are in original YAML order, not sorted
+    let keys: Vec<&String> = obj.keys().collect();
+    assert_eq!(keys, vec!["zebra", "alpha", "mike", "beta"]);
+}
+
+#[test]
+fn test_field_order_preserved_nested() {
+    // Test field order preservation in nested structures
+    let yaml = r#"
+outer:
+  zz: first
+  aa: second
+  mm: third
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let outer = json.as_object().unwrap().get("outer").unwrap().as_object().unwrap();
+
+    let keys: Vec<&String> = outer.keys().collect();
+    assert_eq!(keys, vec!["zz", "aa", "mm"]);
+}
+
+#[test]
+fn test_field_order_preserved_in_mx() {
+    // Test that field order is preserved in to_mx() conversion
+    let yaml = r#"
++form[Test Form]:
+  zField: value1
+  aField: value2
+  mField: value3
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_mx();
+    let form = json.as_object().unwrap().get("+form").unwrap().as_object().unwrap();
+
+    // __name is inserted but other fields should maintain order
+    let keys: Vec<&String> = form.keys().collect();
+    // Note: __name is inserted during to_mx transformation
+    assert!(keys.contains(&&"zField".to_string()));
+    assert!(keys.contains(&&"aField".to_string()));
+    assert!(keys.contains(&&"mField".to_string()));
+
+    // Find positions of the original fields (excluding __name)
+    let field_keys: Vec<&String> = keys.iter().filter(|k| !k.starts_with("__")).copied().collect();
+    assert_eq!(field_keys, vec!["zField", "aField", "mField"]);
+}

@@ -542,14 +542,16 @@ impl<'a, 'b> Parser<'a> {
                 result.push(' ');
             }
 
-            // Collect the rest of the line
+            // Collect the rest of the line by slicing the original UTF-8 source
+            let line_start = self.idx;
             while !self.current.is_linebreak() {
-                result.push(self.current as char);
                 if !self.bump() {
                     // End of input
                     break;
                 }
             }
+            let line_end = self.idx;
+            result.push_str(self.slice_range((line_start, line_end)));
 
             // Move past the newline if present
             if self.current.is_linebreak() {
