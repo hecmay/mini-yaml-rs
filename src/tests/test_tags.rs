@@ -155,3 +155,124 @@ fn test_non_numeric_strings_not_converted() {
         crate::Yaml::Scalar("foo123")
     );
 }
+
+// Composite/generic type tag tests
+
+#[test]
+fn test_generic_tag_seq() {
+    // Test !seq<T> style generic tags
+    let yaml = r#"
+tags: !seq<string> [rust, yaml, parser]
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    if let crate::Yaml::Mapping(entries) = &parsed {
+        if let crate::Yaml::Mapping(inner) = &entries[0].value {
+            assert_eq!(inner[0].value, crate::Yaml::Scalar("seq<string>"));
+            assert_eq!(
+                inner[1].value,
+                crate::Yaml::Sequence(vec![
+                    crate::Yaml::Scalar("rust"),
+                    crate::Yaml::Scalar("yaml"),
+                    crate::Yaml::Scalar("parser")
+                ])
+            );
+        } else {
+            panic!("Expected inner mapping");
+        }
+    } else {
+        panic!("Expected mapping");
+    }
+}
+
+#[test]
+fn test_generic_tag_option() {
+    // Test !option<T> for nullable values
+    let yaml = r#"
+user:
+  name: Alice
+  nickname: !option<string> "Ali"
+  age: !option<int> 30
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let user = json.get("user").unwrap().as_object().unwrap();
+
+    let nickname = user.get("nickname").unwrap().as_object().unwrap();
+    assert_eq!(nickname.get("__type").unwrap(), "option<string>");
+    assert_eq!(nickname.get("__value").unwrap(), "Ali");
+
+    let age = user.get("age").unwrap().as_object().unwrap();
+    assert_eq!(age.get("__type").unwrap(), "option<int>");
+    assert_eq!(age.get("__value").unwrap(), 30);
+}
+
+#[test]
+fn test_generic_tag_map() {
+    // Test !map<K,V> for typed dictionaries
+    let yaml = r#"
+settings: !map<string,int>
+  timeout: 30
+  retries: 3
+  max_connections: 100
+"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let settings = json.get("settings").unwrap().as_object().unwrap();
+
+    assert_eq!(settings.get("__type").unwrap(), "map<string,int>");
+    assert_eq!(settings.get("timeout").unwrap(), 30);
+    assert_eq!(settings.get("retries").unwrap(), 3);
+    assert_eq!(settings.get("max_connections").unwrap(), 100);
+}
+
+#[test]
+fn test_generic_tag_nested() {
+    // Test nested generics like !seq<option<string>>
+    let yaml = r#"!seq<option<string>> [hello, world]"#;
+    let parsed = crate::parse(yaml).unwrap();
+    if let crate::Yaml::Mapping(entries) = &parsed {
+        assert_eq!(entries[0].value, crate::Yaml::Scalar("seq<option<string>>"));
+    } else {
+        panic!("Expected mapping");
+    }
+}
+
+#[test]
+fn test_generic_tag_union() {
+    // Test union types with pipe: !option<string|int>
+    let yaml = r#"value: !option<string|int> 42"#;
+    let parsed = crate::parse(yaml).unwrap();
+    let json = parsed.to_json();
+    let value = json.get("value").unwrap().as_object().unwrap();
+    assert_eq!(value.get("__type").unwrap(), "option<string|int>");
+    assert_eq!(value.get("__value").unwrap(), 42);
+}
+
+#[test]
+fn test_generic_tag_unclosed_bracket() {
+    // Unclosed angle bracket should fail
+    let result = crate::parse("!seq<string [a, b]");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.msg.unwrap().contains("unclosed '<'"));
+}
+
+#[test]
+fn test_generic_tag_unmatched_close() {
+    // Unmatched closing bracket should fail
+    let result = crate::parse("!seq> [a, b]");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.msg.unwrap().contains("unmatched '>'"));
+}
+
+#[test]
+fn test_generic_tag_with_spaces() {
+    // Spaces inside angle brackets - tag stops at space
+    // !option<string | int> becomes tag "option<string" (unclosed)
+    let yaml = r#"!option<string | int> 42"#;
+    let result = crate::parse(yaml);
+    println!("Result with spaces: {:?}", result);
+    // This should fail because space breaks the tag, leaving unclosed '<'
+    assert!(result.is_err());
+}

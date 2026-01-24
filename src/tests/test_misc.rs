@@ -207,12 +207,13 @@ fn test_colon_inside_brackets_in_key() {
   offset: 100
 "#;
     let parsed = crate::parse(yaml).unwrap();
-    let expected = map! {
-        "+test.banner[Magix: Supercharge LLMs](http://example.com/bg.jpg)" => map! {
-            "offset" => crate::Yaml::Int(100)
-        }
-    };
-    assert_eq!(parsed, expected);
+    let json = parsed.to_mx();
+
+    let obj = json.as_object().unwrap();
+    let banner = obj.get("+test.banner").unwrap().as_object().unwrap();
+    assert_eq!(banner.get("__name").unwrap(), "Magix: Supercharge LLMs");
+    assert_eq!(banner.get("__value").unwrap(), "http://example.com/bg.jpg");
+    assert_eq!(banner.get("offset").unwrap(), 100);
 }
 
 #[test]

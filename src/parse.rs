@@ -327,18 +327,43 @@ impl<'a, 'b> Parser<'a> {
 
     /// Parse a tag name after the `!` character.
     /// Returns the tag name as a string slice.
+    /// Supports generic type syntax like `!seq<string>` or `!map<string,int>`.
     fn parse_tag(&mut self) -> Result<&'a str> {
         // Consume the '!'
         self.advance()?;
 
         // Capture tag name start
         let tag_start = self.idx;
+        let mut angle_depth: i32 = 0;
 
-        // Parse tag characters (alphanumeric, hyphen, underscore)
-        while matches!(self.current, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_') {
+        loop {
+            match self.current {
+                // Standard tag characters always allowed
+                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'_' => {}
+                // Opening angle bracket - start generic type params
+                b'<' => {
+                    angle_depth += 1;
+                }
+                // Closing angle bracket - must have matching open
+                b'>' => {
+                    if angle_depth == 0 {
+                        return self.parse_error_with_msg("unmatched '>' in tag name");
+                    }
+                    angle_depth -= 1;
+                }
+                // Comma and pipe only allowed inside angle brackets
+                b',' | b'|' if angle_depth > 0 => {}
+                // Any other character ends the tag name
+                _ => break,
+            }
             if !self.bump() {
                 break;
             }
+        }
+
+        // Check for unclosed angle brackets
+        if angle_depth > 0 {
+            return self.parse_error_with_msg("unclosed '<' in tag name");
         }
 
         let tag_end = self.idx;

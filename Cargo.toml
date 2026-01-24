@@ -1,6 +1,6 @@
 [package]
 name = "mini-yaml-rs"
-version = "0.2.6"
+version = "0.2.7"
 authors = ["Shawn Xiang <xiang.elec@domain.com>"]
 edition = "2021"
 license = "Apache-2.0"
