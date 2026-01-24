@@ -246,7 +246,11 @@ fn test_utf8_chinese_in_block_scalar() {
     if let crate::Yaml::Mapping(entries) = parsed {
         assert_eq!(entries.len(), 1);
         if let crate::Yaml::String(s) = &entries[0].value {
-            assert!(s.contains("请输入简短的描述"), "Chinese text not preserved: {}", s);
+            assert!(
+                s.contains("请输入简短的描述"),
+                "Chinese text not preserved: {}",
+                s
+            );
             assert!(s.contains("最多200字"), "Chinese text not preserved: {}", s);
         } else {
             panic!("Expected String for block scalar");
@@ -282,7 +286,11 @@ fn test_utf8_mixed_content_block_scalar() {
     let parsed = crate::parse(yaml).unwrap();
     if let crate::Yaml::Mapping(entries) = parsed {
         if let crate::Yaml::String(s) = &entries[0].value {
-            assert!(s.contains("Hello 世界"), "Mixed content not preserved: {}", s);
+            assert!(
+                s.contains("Hello 世界"),
+                "Mixed content not preserved: {}",
+                s
+            );
             assert!(s.contains("¥100"), "Yen symbol not preserved: {}", s);
             assert!(s.contains("25°C"), "Degree symbol not preserved: {}", s);
         } else {

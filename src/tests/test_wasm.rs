@@ -124,6 +124,14 @@ fn test_parse_yaml_utf8_chinese_preserved() {
     let info = js_sys::Reflect::get(obj, &"info".into()).unwrap();
     let info_str = info.as_string().unwrap();
 
-    assert!(info_str.contains("你好世界"), "Chinese not preserved: {}", info_str);
-    assert!(info_str.contains("测试中文"), "Chinese not preserved: {}", info_str);
+    assert!(
+        info_str.contains("你好世界"),
+        "Chinese not preserved: {}",
+        info_str
+    );
+    assert!(
+        info_str.contains("测试中文"),
+        "Chinese not preserved: {}",
+        info_str
+    );
 }

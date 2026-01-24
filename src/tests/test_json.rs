@@ -206,7 +206,13 @@ outer:
 "#;
     let parsed = crate::parse(yaml).unwrap();
     let json = parsed.to_json();
-    let outer = json.as_object().unwrap().get("outer").unwrap().as_object().unwrap();
+    let outer = json
+        .as_object()
+        .unwrap()
+        .get("outer")
+        .unwrap()
+        .as_object()
+        .unwrap();
 
     let keys: Vec<&String> = outer.keys().collect();
     assert_eq!(keys, vec!["zz", "aa", "mm"]);
@@ -223,7 +229,13 @@ fn test_field_order_preserved_in_mx() {
 "#;
     let parsed = crate::parse(yaml).unwrap();
     let json = parsed.to_mx();
-    let form = json.as_object().unwrap().get("+form").unwrap().as_object().unwrap();
+    let form = json
+        .as_object()
+        .unwrap()
+        .get("+form")
+        .unwrap()
+        .as_object()
+        .unwrap();
 
     // __name is inserted but other fields should maintain order
     let keys: Vec<&String> = form.keys().collect();
@@ -233,6 +245,10 @@ fn test_field_order_preserved_in_mx() {
     assert!(keys.contains(&&"mField".to_string()));
 
     // Find positions of the original fields (excluding __name)
-    let field_keys: Vec<&String> = keys.iter().filter(|k| !k.starts_with("__")).copied().collect();
+    let field_keys: Vec<&String> = keys
+        .iter()
+        .filter(|k| !k.starts_with("__"))
+        .copied()
+        .collect();
     assert_eq!(field_keys, vec!["zField", "aField", "mField"]);
 }

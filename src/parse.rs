@@ -698,7 +698,8 @@ impl<'a, 'b> Parser<'a> {
                 b' ' | b'\t' => self.chomp_whitespace(),
                 b'\n' | b'\r' => {
                     if !self.bump_newline() {
-                        return self.parse_error_with_msg("unexpected end of input in flow mapping");
+                        return self
+                            .parse_error_with_msg("unexpected end of input in flow mapping");
                     }
                 }
                 b'#' => self.chomp_comment(),
@@ -847,7 +848,9 @@ impl<'a, 'b> Parser<'a> {
                         b' ' | b'\t' => self.chomp_whitespace(),
                         b'\n' | b'\r' => {
                             if !self.bump_newline() {
-                                return self.parse_error_with_msg("unexpected end of input in flow sequence");
+                                return self.parse_error_with_msg(
+                                    "unexpected end of input in flow sequence",
+                                );
                             }
                         }
                         b'#' => self.chomp_comment(),
@@ -861,7 +864,9 @@ impl<'a, 'b> Parser<'a> {
                                     b' ' | b'\t' => self.chomp_whitespace(),
                                     b'\n' | b'\r' => {
                                         if !self.bump_newline() {
-                                            return self.parse_error_with_msg("unexpected end of input in flow sequence");
+                                            return self.parse_error_with_msg(
+                                                "unexpected end of input in flow sequence",
+                                            );
                                         }
                                     }
                                     b'#' => self.chomp_comment(),
